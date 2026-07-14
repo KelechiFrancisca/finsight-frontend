@@ -1,26 +1,3 @@
-<<<<<<< HEAD
-import logo from './logo.svg';
-import './App.css';
-
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-=======
 import { BrowserRouter as Router, Routes, Route, NavLink, Navigate } from "react-router-dom";
 import {
   Chart as ChartJS,
@@ -70,86 +47,14 @@ function App() {
             </div>
             <p className="text-gray-500 text-sm mb-6">Business Analytics</p>
             <nav className="space-y-4">
-              <NavLink
-                to="/dashboard"
-                className={({ isActive }) =>
-                  isActive
-                    ? "block text-blue-600 font-bold"
-                    : "block text-gray-700 hover:text-blue-600"
-                }
-              >
-                Dashboard
-              </NavLink>
-              <NavLink
-                to="/forecast"
-                className={({ isActive }) =>
-                  isActive
-                    ? "block text-blue-600 font-bold"
-                    : "block text-gray-700 hover:text-blue-600"
-                }
-              >
-                Forecast
-              </NavLink>
-              <NavLink
-                to="/alerts"
-                className={({ isActive }) =>
-                  isActive
-                    ? "block text-blue-600 font-bold"
-                    : "block text-gray-700 hover:text-blue-600"
-                }
-              >
-                Alerts
-              </NavLink>
-              <NavLink
-                to="/settings"
-                className={({ isActive }) =>
-                  isActive
-                    ? "block text-blue-600 font-bold"
-                    : "block text-gray-700 hover:text-blue-600"
-                }
-              >
-                Settings
-              </NavLink>
-              <NavLink
-                to="/profile"
-                className={({ isActive }) =>
-                  isActive
-                    ? "block text-blue-600 font-bold"
-                    : "block text-gray-700 hover:text-blue-600"
-                }
-              >
-                Profile
-              </NavLink>
-              <NavLink
-                to="/login"
-                className={({ isActive }) =>
-                  isActive
-                    ? "block text-blue-600 font-bold"
-                    : "block text-gray-700 hover:text-blue-600"
-                }
-              >
-                Login
-              </NavLink>
-              <NavLink
-                to="/register"
-                className={({ isActive }) =>
-                  isActive
-                    ? "block text-blue-600 font-bold"
-                    : "block text-gray-700 hover:text-blue-600"
-                }
-              >
-                Register
-              </NavLink>
-              <NavLink
-                to="/forgot-password"
-                className={({ isActive }) =>
-                  isActive
-                    ? "block text-blue-600 font-bold"
-                    : "block text-gray-700 hover:text-blue-600"
-                }
-              >
-                Forgot Password
-              </NavLink>
+              <NavLink to="/dashboard" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block text-gray-700 hover:text-blue-600"}>Dashboard</NavLink>
+              <NavLink to="/forecast" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block text-gray-700 hover:text-blue-600"}>Forecast</NavLink>
+              <NavLink to="/alerts" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block text-gray-700 hover:text-blue-600"}>Alerts</NavLink>
+              <NavLink to="/settings" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block text-gray-700 hover:text-blue-600"}>Settings</NavLink>
+              <NavLink to="/profile" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block text-gray-700 hover:text-blue-600"}>Profile</NavLink>
+              <NavLink to="/login" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block text-gray-700 hover:text-blue-600"}>Login</NavLink>
+              <NavLink to="/register" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block text-gray-700 hover:text-blue-600"}>Register</NavLink>
+              <NavLink to="/forgot-password" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block text-gray-700 hover:text-blue-600"}>Forgot Password</NavLink>
             </nav>
           </aside>
         )}
@@ -172,59 +77,18 @@ function App() {
             <Route path="/reset-password/:token" element={<ResetPassword />} />
 
             {/* Protected routes */}
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/forecast"
-              element={
-                <ProtectedRoute>
-                  <Forecast />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/alerts"
-              element={
-                <ProtectedRoute>
-                  <Alerts />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <Settings />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/forecast" element={<ProtectedRoute><Forecast /></ProtectedRoute>} />
+            <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
             {/* ✅ Redirect root path */}
-            <Route
-              path="/"
-              element={
-                token ? <Navigate to="/dashboard" /> : <Navigate to="/login" />
-              }
-            />
+            <Route path="/" element={token ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
           </Routes>
         </main>
       </div>
     </Router>
->>>>>>> eecf6611ba0f362931e516c3f4743e21ade3df8b
   );
 }
 
