@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+/* Default React styles */
 .App {
   text-align: center;
 }
@@ -30,14 +30,11 @@
 }
 
 @keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
-=======
+
+/* Dashboard styles */
 .dashboard {
   font-family: Arial, sans-serif;
   padding: 20px;
@@ -74,4 +71,3 @@
 
 .alerts { margin-top: 20px; }
 .chart { margin-top: 20px; }
->>>>>>> eecf6611ba0f362931e516c3f4743e21ade3df8b
