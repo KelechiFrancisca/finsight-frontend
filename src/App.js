@@ -27,6 +27,9 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const token = localStorage.getItem("token"); // ✅ check if logged in
 
+  // ✅ Log backend URL to confirm React is reading .env.production
+  console.log("Backend URL:", process.env.REACT_APP_API_URL);
+
   return (
     <Router>
       <div className="flex min-h-screen bg-gray-50">
