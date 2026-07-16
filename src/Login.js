@@ -10,10 +10,8 @@ function Login() {
   const [successMessage, setSuccessMessage] = useState("");
   const navigate = useNavigate();
 
-  const baseUrl =
-    window.location.hostname === "localhost"
-      ? "http://127.0.0.1:5000/api"
-      : "https://ai-business-insights-dashboard.onrender.com/api";
+  // ✅ Use environment variable for backend URL
+  const baseUrl = process.env.REACT_APP_API_URL;
 
   // ✅ Validation
   const validate = () => {
@@ -31,7 +29,8 @@ function Login() {
 
     try {
       setLoading(true);
-      const response = await fetch(`${baseUrl}/login`, {
+      // ✅ Explicitly include /api since Flask blueprints use url_prefix="/api"
+      const response = await fetch(`${baseUrl}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

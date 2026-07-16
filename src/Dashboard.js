@@ -106,7 +106,7 @@ function Dashboard() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
-    fetch(`${baseUrl}/settings`, {
+    fetch(`${baseUrl}/api/settings`, {
       headers: { Authorization: "Bearer " + token },
     })
       .then(res => res.json())
