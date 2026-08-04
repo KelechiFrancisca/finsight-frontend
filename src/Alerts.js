@@ -12,6 +12,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import { API_BASE_URL } from "./apiConfig";  // ✅ added import
 
 ChartJS.register(
   CategoryScale,
@@ -33,7 +34,7 @@ function Alerts() {
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
-    fetch("http://127.0.0.1:5000/api/alerts", {
+    fetch(`${API_BASE_URL}/alerts`, {   // ✅ updated to use API_BASE_URL
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
@@ -202,9 +203,8 @@ function Alerts() {
                   ? "Monitor spending closely."
                   : "Informational alert — keep monitoring."}
               </p>
-
-                            {/* Scenario Badge */}
-              <span
+              {/* Scenario Badge */}
+                            <span
                 className={`px-2 py-1 rounded-lg font-extrabold inline-block mt-2 ${
                   alert.type === "revenue"
                     ? "bg-green-100 text-green-700"
@@ -253,6 +253,7 @@ function Alerts() {
           );
         })}
       </div>
+
       {/* Modal Popup */}
       {showModal && selectedAlert && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
@@ -278,7 +279,7 @@ function Alerts() {
                 onClick={async () => {
                   try {
                     // ✅ Call backend resolve route
-                    await fetch(`/api/alerts/${selectedAlert.id}/resolve`, {
+                    await fetch(`${API_BASE_URL}/alerts/${selectedAlert.id}/resolve`, {  // updated
                       method: "POST",
                       headers: {
                         "Content-Type": "application/json",
@@ -327,7 +328,7 @@ function Alerts() {
         <button
           onClick={async () => {
             try {
-              const res = await fetch("http://127.0.0.1:5000/api/alerts", {
+              const res = await fetch(`${API_BASE_URL}/alerts`, {   // updated
                 headers: {
                   Authorization: `Bearer ${localStorage.getItem("token")}`,
                 },
@@ -366,4 +367,3 @@ function Alerts() {
 }
 
 export default Alerts;
-
