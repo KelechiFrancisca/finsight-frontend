@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import API_BASE_URL from "./apiConfig";   // ✅ centralized import
 
 function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -7,11 +8,6 @@ function ForgotPassword() {
   const [errors, setErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState("");
   const navigate = useNavigate();
-
-  const baseUrl =
-    window.location.hostname === "localhost"
-      ? "http://127.0.0.1:5000/api"
-      : "https://ai-business-insights-dashboard.onrender.com/api";
 
   // ✅ Validation
   const validate = () => {
@@ -28,7 +24,7 @@ function ForgotPassword() {
 
     try {
       setLoading(true);
-      const response = await fetch(`${baseUrl}/forgot-password`, {
+      const response = await fetch(`${API_BASE_URL}/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim().toLowerCase() }),
@@ -43,7 +39,7 @@ function ForgotPassword() {
       }
     } catch (error) {
       console.error("Forgot password error:", error);
-      setErrors({ form: "Server error" });
+      setErrors({ form: "Server error, please try again." });
     } finally {
       setLoading(false);
     }

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaInfoCircle } from "react-icons/fa";
+import API_BASE_URL from "./apiConfig";   // ✅ centralized import
 
 // ✅ Currency symbols + formatter
 const currencySymbols = {
@@ -22,11 +23,6 @@ function Settings() {
   const [showModal, setShowModal] = useState(false);
   const [confirmText, setConfirmText] = useState("");
 
-  const baseUrl =
-    window.location.hostname === "localhost"
-      ? "http://127.0.0.1:5000/api"
-      : "https://ai-business-insights-dashboard.onrender.com/api";
-
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -34,7 +30,7 @@ function Settings() {
       return;
     }
 
-    fetch(`${baseUrl}/settings`, {
+    fetch(`${API_BASE_URL}/settings`, {
       headers: { Authorization: "Bearer " + token },
     })
       .then((res) => res.json())
@@ -47,13 +43,13 @@ function Settings() {
         console.error("Settings fetch error:", err);
         setLoading(false);
       });
-  }, [baseUrl]);
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
 
-    fetch(`${baseUrl}/settings`, {
+    fetch(`${API_BASE_URL}/settings`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -84,7 +80,7 @@ function Settings() {
   const handleClearEntries = () => {
     if (window.confirm("Clear all transactions?")) {
       const token = localStorage.getItem("token");
-      fetch(`${baseUrl}/clear_entries`, {
+      fetch(`${API_BASE_URL}/clear_entries`, {
         method: "DELETE",
         headers: { Authorization: "Bearer " + token },
       })
@@ -111,7 +107,7 @@ function Settings() {
   const confirmClearAll = () => {
     if (confirmText === "RESET") {
       const token = localStorage.getItem("token");
-      fetch(`${baseUrl}/clear_all`, {
+      fetch(`${API_BASE_URL}/clear_all`, {
         method: "DELETE",
         headers: { Authorization: "Bearer " + token },
       })
@@ -176,8 +172,9 @@ function Settings() {
           <p className="text-2xl font-extrabold text-red-600">Active</p>
         </div>
       </div>
+
       {/* Business Info */}
-      <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+            <div className="bg-white p-6 rounded-lg shadow-md mb-8">
         <h2 className="text-lg font-bold mb-4">Business Information</h2>
         {loading ? (
           <p className="font-bold">Loading...</p>

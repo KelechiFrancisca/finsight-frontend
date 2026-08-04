@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import API_BASE_URL from "./apiConfig";   // ✅ centralized import
 
 function Register() {
   const [email, setEmail] = useState("");
@@ -9,13 +12,7 @@ function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  const [successMessage, setSuccessMessage] = useState("");
   const navigate = useNavigate();
-
-  const baseUrl =
-    window.location.hostname === "localhost"
-      ? "http://127.0.0.1:5000/api"
-      : "https://ai-business-insights-dashboard.onrender.com/api";
 
   // ✅ Password strength scoring
   const getStrength = (pwd) => {
@@ -43,12 +40,11 @@ function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSuccessMessage("");
     if (!validate()) return;
 
     try {
       setLoading(true);
-      const response = await fetch(`${baseUrl}/register`, {
+      const response = await fetch(`${API_BASE_URL}/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -60,16 +56,16 @@ function Register() {
 
       const data = await response.json();
 
-      if (data.token) {
+      if (response.ok && data.token) {
         localStorage.setItem("token", data.token);
-        setSuccessMessage("✅ Registration successful! Redirecting...");
+        toast.success("✅ Registration successful! Redirecting...");
         setTimeout(() => navigate("/dashboard"), 1500);
       } else {
-        setErrors({ form: data.error || "Registration failed" });
+        toast.error(data.error || "Registration failed");
       }
     } catch (error) {
       console.error("Register error:", error);
-      setErrors({ form: "Server error" });
+      toast.error("Network error, please try again");
     } finally {
       setLoading(false);
     }
@@ -94,9 +90,6 @@ function Register() {
       <div className="flex items-center justify-center">
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md w-96 font-bold">
           <h2 className="text-2xl font-extrabold mb-4 text-gray-800">Register</h2>
-
-          {successMessage && <p className="text-green-600 font-extrabold mb-2">{successMessage}</p>}
-          {errors.form && <p className="text-red-600 font-extrabold mb-2">{errors.form}</p>}
 
           <input
             type="email"
@@ -166,17 +159,51 @@ function Register() {
           </div>
           {errors.confirmPassword && <p className="text-red-500 text-sm mb-2 font-bold">{errors.confirmPassword}</p>}
 
+          {/* ✅ Loading spinner integrated */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600 disabled:opacity-50 font-extrabold"
+            className={`w-full py-2 rounded font-extrabold text-white 
+              ${loading ? "bg-gray-400 cursor-not-allowed" : "bg-green-500 hover:bg-green-600"}`}
           >
-            {loading ? "Registering..." : "Register"}
+            {loading ? (
+              <div className="flex items-center justify-center">
+                <svg
+                  className="animate-spin h-5 w-5 mr-2 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"
+                  ></path>
+                </svg>
+                Registering...
+              </div>
+            ) : (
+              "Register"
+            )}
           </button>
+
+                    {/* Toast container */}
+          <ToastContainer position="top-right" autoClose={3000} />
 
           <p className="mt-3 text-sm font-bold">
             Already have an account?{" "}
-            <span className="text-blue-600 cursor-pointer font-extrabold" onClick={() => navigate("/login")}>
+            <span
+              className="text-blue-600 cursor-pointer font-extrabold"
+              onClick={() => navigate("/login")}
+            >
               Login
             </span>
           </p>

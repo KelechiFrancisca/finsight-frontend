@@ -46,7 +46,7 @@ function Forecast() {
   const baseUrl =
     window.location.hostname === "localhost"
       ? "http://127.0.0.1:5000/api"
-      : "https://ai-business-insights-dashboard.onrender.com/api";
+      : "https://finsight-backend-byae.onrender.com/api";
 
   useEffect(() => {
     const token = localStorage.getItem("token");

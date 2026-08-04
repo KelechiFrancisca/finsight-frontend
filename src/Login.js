@@ -1,5 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import API_BASE_URL from "./apiConfig";   // ✅ centralized import
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -7,11 +10,7 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  const [successMessage, setSuccessMessage] = useState("");
   const navigate = useNavigate();
-
-  // ✅ Use environment variable for backend URL
-  const baseUrl = process.env.REACT_APP_API_URL;
 
   // ✅ Validation
   const validate = () => {
@@ -24,34 +23,32 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSuccessMessage("");
     if (!validate()) return;
 
     try {
       setLoading(true);
-      // ✅ Explicitly include /api since Flask blueprints use url_prefix="/api"
-      const response = await fetch(`${baseUrl}/api/login`, {
+      // ✅ Correct backend route: /api/login
+      const response = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
-          password,
+          password
         }),
       });
 
       const data = await response.json();
-      console.log("Login response:", data);
 
-      if (data.token) {
+      if (response.ok && data.token) {
         localStorage.setItem("token", data.token);
-        setSuccessMessage("✅ Login successful! Redirecting...");
+        toast.success("✅ Login successful! Redirecting...");
         setTimeout(() => navigate("/dashboard"), 1500);
       } else {
-        setErrors({ form: data.error || "Login failed" });
+        toast.error(data.error || "Login failed");
       }
     } catch (error) {
       console.error("Login error:", error);
-      setErrors({ form: "Server error" });
+      toast.error("Network error, please try again");
     } finally {
       setLoading(false);
     }
@@ -79,13 +76,6 @@ function Login() {
           className="bg-white p-6 rounded-lg shadow-md w-96 font-bold"
         >
           <h2 className="text-2xl font-extrabold mb-4 text-gray-800">Login</h2>
-
-          {successMessage && (
-            <p className="text-green-600 font-extrabold mb-2">{successMessage}</p>
-          )}
-          {errors.form && (
-            <p className="text-red-600 font-extrabold mb-2">{errors.form}</p>
-          )}
 
           <input
             type="email"
@@ -119,13 +109,44 @@ function Login() {
             <p className="text-red-500 text-sm mb-2 font-bold">{errors.password}</p>
           )}
 
+          {/* ✅ Loading spinner integrated */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 disabled:opacity-50 font-extrabold"
+            className={`w-full py-2 rounded font-extrabold text-white 
+              ${loading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600"}`}
           >
-            {loading ? "Logging in..." : "Login"}
+            {loading ? (
+              <div className="flex items-center justify-center">
+                <svg
+                  className="animate-spin h-5 w-5 mr-2 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"
+                  ></path>
+                </svg>
+                Logging in...
+              </div>
+            ) : (
+              "Login"
+            )}
           </button>
+
+          {/* Toast container */}
+          <ToastContainer position="top-right" autoClose={3000} />
 
           {/* Forgot Password */}
           <p className="mt-3 text-sm font-bold">

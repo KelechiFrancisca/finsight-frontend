@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import API_BASE_URL from "./apiConfig";   // ✅ centralized import
 
 function Profile() {
   const [profile, setProfile] = useState({ name: "", email: "", phone: "", role: "" });
@@ -11,11 +12,6 @@ function Profile() {
   const [savingPassword, setSavingPassword] = useState(false);
   const navigate = useNavigate();
 
-  const baseUrl =
-    window.location.hostname === "localhost"
-      ? "http://127.0.0.1:5000/api"
-      : "https://ai-business-insights-dashboard.onrender.com/api";
-
   // ✅ Load profile
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -24,7 +20,7 @@ function Profile() {
       return;
     }
 
-    fetch(`${baseUrl}/users/me`, {
+    fetch(`${API_BASE_URL}/users/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())
@@ -44,7 +40,7 @@ function Profile() {
         console.error("Error fetching profile:", err);
       })
       .finally(() => setLoading(false));
-  }, [navigate, baseUrl]);
+  }, [navigate]);
 
   // ✅ Handle input change
   const handleChange = (e) => {
@@ -84,7 +80,7 @@ function Profile() {
     const token = localStorage.getItem("token");
     setSaving(true);
     try {
-      const response = await fetch(`${baseUrl}/users/me`, {
+      const response = await fetch(`${API_BASE_URL}/users/me`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -112,7 +108,8 @@ function Profile() {
     const token = localStorage.getItem("token");
     setSavingPassword(true);
     try {
-      const response = await fetch(`${baseUrl}/users/change-password`, {
+      // ✅ Correct backend route: /api/change-password
+      const response = await fetch(`${API_BASE_URL}/change-password`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -235,7 +232,7 @@ function Profile() {
         </button>
       </div>
 
-      {/* Logout */}
+            {/* Logout */}
       <button
         onClick={handleLogout}
         className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 font-extrabold"

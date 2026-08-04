@@ -1,13 +1,9 @@
 import { useEffect, useState } from "react";
+import API_BASE_URL from "./apiConfig";   // ✅ centralized import
 
 function Upload() {
   const [uploads, setUploads] = useState([]);
   const [loading, setLoading] = useState(false);
-
-  const baseUrl =
-    window.location.hostname === "localhost"
-      ? "http://127.0.0.1:5000/api"
-      : "https://ai-business-insights-dashboard.onrender.com/api";
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -15,10 +11,11 @@ function Upload() {
       window.location.href = "/login";
       return;
     }
-    fetch(`${baseUrl}/upload`, { headers: { Authorization: "Bearer " + token } })
+    fetch(`${API_BASE_URL}/upload`, { headers: { Authorization: "Bearer " + token } })
       .then((res) => res.json())
-      .then((data) => setUploads(Array.isArray(data) ? data : []));
-  }, [baseUrl]);
+      .then((data) => setUploads(Array.isArray(data) ? data : []))
+      .catch((err) => console.error("Error fetching uploads:", err));
+  }, []);
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
@@ -27,7 +24,7 @@ function Upload() {
     formData.append("file", file);
     setLoading(true);
 
-    fetch(`${baseUrl}/upload`, {
+    fetch(`${API_BASE_URL}/upload`, {
       method: "POST",
       headers: { Authorization: "Bearer " + localStorage.getItem("token") },
       body: formData,
@@ -35,15 +32,17 @@ function Upload() {
       .then((res) => res.json())
       .then((data) => {
         if (data.filename) {
-          fetch(`${baseUrl}/upload`, {
+          fetch(`${API_BASE_URL}/upload`, {
             headers: { Authorization: "Bearer " + localStorage.getItem("token") },
           })
             .then((res) => res.json())
-            .then((fresh) => setUploads(Array.isArray(fresh) ? fresh : []));
+            .then((fresh) => setUploads(Array.isArray(fresh) ? fresh : []))
+            .catch((err) => console.error("Error refreshing uploads:", err));
         } else {
           alert(data.error || "Upload failed");
         }
       })
+      .catch((err) => console.error("Error uploading file:", err))
       .finally(() => setLoading(false));
   };
 
@@ -62,7 +61,7 @@ function Upload() {
 
       {/* ✅ Download Sample CSV */}
       <a
-        href={`${baseUrl}/sample_csv`}
+        href={`${API_BASE_URL}/sample_csv`}
         className="px-4 py-2 bg-green-600 text-white rounded ml-4"
         download="sample.csv"
       >

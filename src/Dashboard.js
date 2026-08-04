@@ -3,6 +3,7 @@ import { Bar } from "react-chartjs-2";
 import Papa from "papaparse";
 import { FaArrowUp, FaArrowDown, FaBalanceScale, FaPercentage, FaPlus } from "react-icons/fa";
 
+
 // ✅ Currency symbols + formatter
 const currencySymbols = {
   USD: "$",
@@ -28,7 +29,7 @@ const baseUrl =
   process.env.REACT_APP_API_URL || 
   (window.location.hostname === "localhost"
     ? "http://127.0.0.1:5000"
-    : "https://ai-business-insights-dashboard.onrender.com");
+    : "https://finsight-backend-byae.onrender.com/api");
 
 // ✅ Universal API fetch helper
 const apiFetch = async (endpoint, options = {}) => {
