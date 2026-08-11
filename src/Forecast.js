@@ -11,6 +11,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import API_BASE_URL from "./apiConfig"; // ✅ unified import
 
 ChartJS.register(
   CategoryScale,
@@ -43,44 +44,47 @@ function Forecast() {
   const [horizon, setHorizon] = useState(12);
   const [currency, setCurrency] = useState("USD");
 
-  const baseUrl =
-    window.location.hostname === "localhost"
-      ? "http://127.0.0.1:5000/api"
-      : "https://finsight-backend-byae.onrender.com/api";
-
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      window.location.href = "/login";
-      return;
-    }
-    // ✅ Fetch entries
-    fetch(`${baseUrl}/entries`, {
-      headers: { Authorization: "Bearer " + token },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setTransactions(data);
-        }
-      })
-      .catch((err) => console.error("Error fetching entries:", err));
+  // ✅ Restore saved horizon from localStorage
+  const savedHorizon = localStorage.getItem("horizon");
+  if (savedHorizon) setHorizon(Number(savedHorizon));
 
-    // ✅ Fetch settings for currency
-    fetch(`${baseUrl}/settings`, {
-      headers: { Authorization: "Bearer " + token },
-    })
-      .then((res) => res.json())
-      .then((data) => setCurrency(data.currency || "USD"))
-      .catch((err) => console.error("Error fetching settings:", err));
+  const token = localStorage.getItem("token");
+  if (!token) {
+    window.location.href = "/login";
+    return;
+  }
 
-    // ✅ Read ?tab= query parameter from URL
-    const params = new URLSearchParams(window.location.search);
-    const tabParam = params.get("tab");
-    if (tabParam) {
-      setActiveTab(tabParam);
-    }
-  }, [baseUrl]);
+  // ✅ Fetch entries
+  fetch(`${API_BASE_URL}/entries`, {
+    headers: { Authorization: "Bearer " + token },
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      if (Array.isArray(data)) {
+        setTransactions(data);
+      }
+    })
+    .catch((err) => console.error("Error fetching entries:", err));
+
+  // ✅ Fetch settings for currency + horizon
+  fetch(`${API_BASE_URL}/settings`, {
+    headers: { Authorization: "Bearer " + token },
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      setCurrency(data.currency || "USD");
+      if (data.horizon) setHorizon(data.horizon);
+    })
+    .catch((err) => console.error("Error fetching settings:", err));
+
+  // ✅ Read ?tab= query parameter from URL
+  const params = new URLSearchParams(window.location.search);
+  const tabParam = params.get("tab");
+  if (tabParam) {
+    setActiveTab(tabParam);
+  }
+}, []); // ✅ empty dependency array, no ESLint warning
 
   // Totals
   const totalRevenue = transactions
@@ -94,11 +98,21 @@ function Forecast() {
   const netProfit = totalRevenue - totalExpenses;
   const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
-  // Scenario datasets
+  // ✅ Dynamic expense change vs last month
+  const expenseChange = (() => {
+    const expenses = transactions.filter(t => t.type && t.type.toLowerCase() === "expense");
+    if (expenses.length < 2) return 0;
+    const sorted = expenses.sort((a, b) => new Date(a.date) - new Date(b.date));
+    const prev = Number(sorted[sorted.length - 2].amount);
+    const curr = Number(sorted[sorted.length - 1].amount);
+    return prev > 0 ? ((curr - prev) / prev) * 100 : 0;
+  })();
+
+  // Scenario datasets (still placeholders, but can be replaced with backend data later)
   const scenarios = {
-    Optimistic: { revenueChange: 10, expenseChange: -5, churn: [4,4,3.5,3.5,3,3], salesGrowth: [12,13,14,15,16,17], inventory: [4.5,4.6,4.7,4.8,4.9,5], expenseRatio: [38,37,36,36,35,35] },
-    Realistic: { revenueChange: 5, expenseChange: 0, churn: [5,5,5,5,5,5], salesGrowth: [10,11,12,12,12,13], inventory: [4,4.1,4.1,4.2,4.2,4.3], expenseRatio: [40,40,40,41,40,40] },
-    Pessimistic: { revenueChange: 2, expenseChange: 5, churn: [6,6.5,7,7,7.5,8], salesGrowth: [8,8.5,9,9,9.5,10], inventory: [3.8,3.7,3.6,3.5,3.5,3.4], expenseRatio: [42,43,44,44,45,45] },
+    Optimistic: { revenueChange: 10, expenseChange: -5 },
+    Realistic: { revenueChange: 5, expenseChange: 0 },
+    Pessimistic: { revenueChange: 2, expenseChange: 5 },
   };
 
   const scenario = scenarios[activeScenario];
@@ -152,23 +166,27 @@ function Forecast() {
     <div className="bg-gray-100 min-h-screen p-6 text-base md:text-lg font-bold">
       <h1 className="text-2xl font-extrabold mb-6 text-gray-800">AI-Powered Forecast</h1>
 
-      {/* KPI Cards with icons */}
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        {/* Revenue */}
         <div className="bg-green-100 p-4 rounded-lg shadow-md flex flex-col items-center">
           <span className="text-2xl">💰</span>
           <h2 className="text-sm font-bold text-gray-600">Revenue</h2>
           <p className="text-3xl font-extrabold text-green-700">{formatAmount(totalRevenue, currency)}</p>
         </div>
+        {/* Expenses */}
         <div className="bg-red-100 p-4 rounded-lg shadow-md flex flex-col items-center">
           <span className="text-2xl">📉</span>
           <h2 className="text-sm font-bold text-gray-600">Expenses</h2>
           <p className="text-3xl font-extrabold text-red-700">{formatAmount(totalExpenses, currency)}</p>
         </div>
+        {/* Net Profit */}
         <div className="bg-blue-100 p-4 rounded-lg shadow-md flex flex-col items-center">
           <span className="text-2xl">📈</span>
           <h2 className="text-sm font-bold text-gray-600">Net Profit</h2>
           <p className="text-3xl font-extrabold text-blue-700">{formatAmount(netProfit, currency)}</p>
         </div>
+        {/* Margin */}
         <div className="bg-purple-100 p-4 rounded-lg shadow-md flex flex-col items-center">
           <span className="text-2xl">📊</span>
           <h2 className="text-sm font-bold text-gray-600">Margin</h2>
@@ -176,21 +194,17 @@ function Forecast() {
         </div>
       </div>
 
-            {/* Cashflow Insights with color + currency */}
-      <div
-        className={`p-6 rounded-lg shadow-md mb-6 ${
-          netProfit < 2000 ? "bg-red-100" : "bg-teal-50"
-        }`}
-      >
+            {/* Cashflow Insights */}
+      <div className={`p-6 rounded-lg shadow-md mb-6 ${netProfit < 2000 ? "bg-red-100" : "bg-teal-50"}`}>
         <h2 className="text-lg font-bold mb-2 text-gray-800">📊 Cashflow Insights</h2>
         <p className="text-gray-700">
-          📊 Expenses increased by 1400.0% compared to last month.
+          📊 Expenses changed by {expenseChange.toFixed(1)}% compared to last month.
         </p>
         <p className="text-gray-700">
-          🔮 Forecast: Cashflow looks stable for the next 2 months.
+          🔮 Forecast: Cashflow looks {projectedProfit.every(p => p > 0) ? "stable" : "unstable"} for the next {horizon} months.
         </p>
         <p className="text-gray-700">
-          💡 Suggested Action: Consider renegotiating supplier contracts or cutting non‑essential costs.
+          💡 Suggested Action: {netProfit < 0 ? "Consider renegotiating supplier contracts or cutting non‑essential costs." : "Explore growth investments to boost revenue."}
         </p>
         <p className="text-gray-700">
           📈 Net Profit:{" "}
@@ -215,26 +229,31 @@ function Forecast() {
       </div>
 
       {/* Forecast Horizon Dropdown */}
-      <div className="mb-6 flex items-center space-x-4 font-bold">
-        <div>
-          <label className="block text-sm font-bold text-gray-700">Forecast Horizon</label>
-          <select
-            value={horizon}
-            onChange={(e) => setHorizon(Number(e.target.value))}
-            className="border p-2 rounded w-40 font-bold"
-          >
-            <option value={6}>6 months</option>
-            <option value={12}>12 months</option>
-            <option value={24}>24 months</option>
-          </select>
-        </div>
-        <button
-          onClick={exportCSV}
-          className="bg-teal-500 text-white px-4 py-2 rounded hover:bg-teal-600 font-bold"
-        >
-          Export CSV
-        </button>
-      </div>
+<div className="mb-6 flex items-center space-x-4 font-bold">
+  <div>
+    <label className="block text-sm font-bold text-gray-700">Forecast Horizon</label>
+    <select
+      value={horizon}
+      onChange={(e) => {
+        const val = Number(e.target.value);
+        setHorizon(val);
+        localStorage.setItem("horizon", val); // ✅ save selection
+      }}
+      className="border p-2 rounded w-40 font-bold"
+    >
+      <option value={6}>6 months</option>
+      <option value={12}>12 months</option>
+      <option value={24}>24 months</option>
+    </select>
+  </div>
+  <button
+    onClick={exportCSV}
+    className="bg-teal-500 text-white px-4 py-2 rounded hover:bg-teal-600 font-bold"
+  >
+    Export CSV
+  </button>
+</div>
+
       {/* Forecast Summary Card */}
       <div className="bg-gradient-to-r from-teal-500 to-teal-300 text-white p-6 rounded-lg shadow-md mb-8 font-bold">
         <h2 className="text-xl font-bold mb-2">Forecast Summary ({activeScenario})</h2>
@@ -255,14 +274,10 @@ function Forecast() {
           <span className="font-extrabold">{projectedMargin[horizon-1].toFixed(2)}%</span>{" "}
           {projectedMargin[horizon-1] > profitMargin ? "⬆️" : projectedMargin[horizon-1] < profitMargin ? "⬇️" : "➡️"}
         </p>
-
-        {/* Adjusted Margin Badge */}
         <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg font-extrabold mt-2 inline-block">
           Adjusted Margin: {adjustedMargin.toFixed(2)}%{" "}
           {adjustedMargin > profitMargin ? "⬆️" : adjustedMargin < profitMargin ? "⬇️" : "➡️"}
         </span>
-
-        {/* Recommended Action Button */}
         <div className="mt-4">
           <button
             onClick={() => setShowModal(true)}
@@ -280,7 +295,7 @@ function Forecast() {
             <h3 className="text-lg font-bold mb-4 text-gray-800">Recommended Action</h3>
             <p className="text-gray-700 mb-4">
               {netProfit < 2000
-                ? "Reducing costs by 10% saves ~" + formatAmount(360, currency) + "/month, improving cash reserves and lowering risk."
+                ? "Reducing costs by 10% saves ~" + formatAmount(totalExpenses * 0.1, currency) + "/month."
                 : "Investing in growth could raise revenue by ~15%, boosting profit margins and long-term stability."}
             </p>
             <div className="flex justify-between">
@@ -301,235 +316,328 @@ function Forecast() {
         </div>
       )}
 
-      {/* Tabs for Trend, Proportion, Liquidity, Growth, Risk, Efficiency, Breakdown, Heatmap */}
-      <div className="bg-white p-6 rounded-lg shadow-md font-bold">
-        <h2 className="text-lg font-bold text-gray-800 mb-4">Forecast Visuals</h2>
-        <div className="flex space-x-4 mb-6 flex-wrap font-bold">
-          {["trend","proportion","liquidity","growth","risk","efficiency","breakdown","heatmap"].map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded mb-2 font-bold ${
-                activeTab === tab ? "bg-teal-600 text-white" : "bg-gray-200"
-              }`}
-            >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
-        </div>
+      {/* Tabs and Charts */}
+<div className="bg-white p-6 rounded-lg shadow-md font-bold">
+  <h2 className="text-lg font-bold text-gray-800 mb-4">Forecast Visuals</h2>
+  <div className="flex space-x-4 mb-6 flex-wrap font-bold">
+    {["trend","proportion","liquidity","growth","risk","efficiency","breakdown","heatmap"].map(tab => (
+      <button
+        key={tab}
+        onClick={() => setActiveTab(tab)}
+        className={`px-4 py-2 rounded mb-2 font-bold ${
+          activeTab === tab ? "bg-teal-600 text-white" : "bg-gray-200"
+        }`}
+      >
+        {tab.charAt(0).toUpperCase() + tab.slice(1)}
+      </button>
+    ))}
+  </div>
 
-        {/* Trend Chart */}
-        {activeTab === "trend" && (
-          <div className="font-bold">
-            <Line data={{
-              labels: monthsAhead,
-              datasets: [
-                { label: "Revenue", data: projectedRevenue, borderColor: "#10B981", backgroundColor: "#A7F3D0", fill: true, tension: 0.4, pointRadius: 5 },
-                { label: "Expenses", data: projectedExpenses, borderColor: "#EF4444", backgroundColor: "#FCA5A5", fill: true, tension: 0.4, pointRadius: 5 },
-                { label: "Profit", data: projectedProfit, borderColor: "#3B82F6", backgroundColor: "#93C5FD", fill: true, tension: 0.4, pointRadius: 5 },
-              ],
-            }} />
-            <p className={`mt-3 text-base font-extrabold px-3 py-2 rounded-lg shadow-sm ${profitMargin > 50 ? "bg-green-50 text-gray-900" : "bg-blue-50 text-gray-900"}`}>
-              {profitMargin > 50 ? "✅ Strong margins above 50%." : "📈 Profit remains stable, with expenses steady at ~40% of revenue."}
-            </p>
-          </div>
-        )}
+  {/* Trend Chart */}
+{activeTab === "trend" && (
+  <div>
+    <Line
+      data={{
+        labels: monthsAhead,
+        datasets: [
+          { label: "Revenue", data: projectedRevenue, borderColor: "#10B981", backgroundColor: "#A7F3D0", fill: true, tension: 0.4 },
+          { label: "Expenses", data: projectedExpenses, borderColor: "#EF4444", backgroundColor: "#FCA5A5", fill: true, tension: 0.4 },
+          { label: "Profit", data: projectedProfit, borderColor: "#3B82F6", backgroundColor: "#93C5FD", fill: true, tension: 0.4 },
+        ],
+      }}
+    />
+    <p className="mt-3 text-sm text-gray-700 font-bold">
+      📈 By {monthsAhead[horizon-1]}, revenue is projected at {formatAmount(projectedRevenue[horizon-1], currency)}, 
+      expenses at {formatAmount(projectedExpenses[horizon-1], currency)}, and profit at {formatAmount(projectedProfit[horizon-1], currency)}.
+    </p>
+  </div>
+)}
 
-        {/* Proportion Chart */}
-        {activeTab === "proportion" && (
-          <div className="font-bold">
-            <Bar
-              data={{
-                labels: monthsAhead,
-                datasets: [
-                  { label: "Expenses", data: projectedExpenses, backgroundColor: "#FCA5A5", stack: "combined" },
-                  { label: "Profit", data: projectedProfit, backgroundColor: "#A7F3D0", stack: "combined" },
-                ],
-              }}
-              options={{ scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }}}
-            />
-            <p className="mt-3 text-base text-gray-900 font-extrabold bg-green-50 px-3 py-2 rounded-lg shadow-sm">
-              💰 Each month, profit consistently exceeds expenses, showing healthy margins.
-            </p>
-          </div>
-        )}
+{/* Proportion Chart */}
+{activeTab === "proportion" && (
+  <div>
+    <Bar
+      data={{
+        labels: monthsAhead,
+        datasets: [
+          { label: "Expenses", data: projectedExpenses, backgroundColor: "#FCA5A5", stack: "combined" },
+          { label: "Profit", data: projectedProfit, backgroundColor: "#A7F3D0", stack: "combined" },
+        ],
+      }}
+      options={{ scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }}}
+    />
+    <p className="mt-3 text-sm text-gray-700 font-bold">
+      💰 In {monthsAhead[horizon-1]}, expenses are {((projectedExpenses[horizon-1] / projectedRevenue[horizon-1]) * 100).toFixed(1)}% of revenue, 
+      leaving a profit margin of {projectedMargin[horizon-1].toFixed(1)}%.
+    </p>
+  </div>
+)}
 
-        {/* Liquidity Chart */}
-        {activeTab === "liquidity" && (
-          <div className="font-bold">
-            <Line
-              data={{
-                labels: monthsAhead,
-                datasets: [{ label: "Cash Reserves", data: cumulativeCashflow, borderColor: "#14B8A6", backgroundColor: "#67E8F9", fill: true, tension: 0.4, pointRadius: 5 }],
-              }}
-            />
-            <p className="mt-3 text-base text-gray-900 font-extrabold bg-blue-50 px-3 py-2 rounded-lg shadow-sm">
-              📊 Cash reserves are projected to grow steadily, reaching ~{formatAmount(cumulativeCashflow[horizon-1], currency)} by {monthsAhead[horizon-1]}.
-            </p>
-          </div>
-        )}
+  {/* Liquidity Chart */}
+{activeTab === "liquidity" && (
+  <div>
+    <Line
+      data={{
+        labels: monthsAhead,
+        datasets: [
+          {
+            label: "Cash Reserves",
+            data: cumulativeCashflow,
+            borderColor: "#14B8A6",
+            backgroundColor: "#67E8F9",
+            fill: true,
+            tension: 0.4,
+          },
+        ],
+      }}
+    />
+    <p className="mt-3 text-sm text-gray-700 font-bold">
+      📊 Cash reserves start at {formatAmount(cumulativeCashflow[0], currency)} 
+      and are projected to reach {formatAmount(cumulativeCashflow[horizon-1], currency)} 
+      by {monthsAhead[horizon-1]}.
+    </p>
+  </div>
+)}
 
-        {/* Growth Tab */}
-        {activeTab === "growth" && (
-          <div className="font-bold">
-            <Line
-              data={{
-                labels: monthsAhead,
-                datasets: [
-                  { label: "Sales Growth (%)", data: scenario.salesGrowth, borderColor: "#10B981", backgroundColor: "#A7F3D0", fill: false, tension: 0.4, pointRadius: 5 },
-                  { label: "Customer Churn (%)", data: scenario.churn, borderColor: "#EF4444", backgroundColor: "#FCA5A5", fill: false, tension: 0.4, pointRadius: 5 },
-                ],
-              }}
-            />
-            <p className={`mt-3 text-base font-extrabold px-3 py-2 rounded-lg shadow-sm ${Math.max(...scenario.churn) > 7 ? "bg-red-50 text-gray-900" : "bg-blue-50 text-gray-900"}`}>
-              {Math.max(...scenario.churn) > 7 ? "⚠️ Churn risk rising above 7%." : "📈 Sales expected to grow, while churn remains manageable."}
-            </p>
-          </div>
-        )}
+{/* Growth Tab */}
+{activeTab === "growth" && (
+  <div>
+    <Line
+      data={{
+        labels: monthsAhead,
+        datasets: [
+          {
+            label: "Sales Growth (%)",
+            data: projectedRevenue.map((rev, i) =>
+              i === 0 ? 0 : ((rev - projectedRevenue[i - 1]) / projectedRevenue[i - 1]) * 100
+            ),
+            borderColor: "#10B981",
+            backgroundColor: "#A7F3D0",
+            fill: false,
+            tension: 0.4,
+            pointRadius: 5,
+          },
+          {
+            label: "Customer Churn (%)",
+            data: projectedExpenses.map((exp, i) =>
+              i === 0 ? 0 : ((exp - projectedExpenses[i - 1]) / projectedExpenses[i - 1]) * 100
+            ),
+            borderColor: "#EF4444",
+            backgroundColor: "#FCA5A5",
+            fill: false,
+            tension: 0.4,
+            pointRadius: 5,
+          },
+        ],
+      }}
+    />
+    <p className="mt-3 text-sm text-gray-700 font-bold">
+      📈 Latest sales growth is {(((projectedRevenue[horizon-1] - projectedRevenue[horizon-2]) / projectedRevenue[horizon-2]) * 100).toFixed(1)}%, 
+      while churn is {(((projectedExpenses[horizon-1] - projectedExpenses[horizon-2]) / projectedExpenses[horizon-2]) * 100).toFixed(1)}%.
+    </p>
+  </div>
+)}
 
-                {/* Risk Tab */}
-        {activeTab === "risk" && (
-          <div className="font-bold">
-            <Line
-              data={{
-                labels: monthsAhead,
-                datasets: [
-                  {
-                    label: "Best Case Profit",
-                    data: projectedProfit.map((p) => p * 1.1),
-                    borderColor: "#3B82F6",
-                    backgroundColor: "#93C5FD",
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 5,
-                  },
-                  {
-                    label: "Most Likely Profit",
-                    data: projectedProfit,
-                    borderColor: "#14B8A6",
-                    backgroundColor: "#67E8F9",
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 5,
-                  },
-                  {
-                    label: "Worst Case Profit",
-                    data: projectedProfit.map((p) => p * 0.8),
-                    borderColor: "#EF4444",
-                    backgroundColor: "#FCA5A5",
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 5,
-                  },
-                ],
-              }}
-            />
-            <p className="mt-3 text-base text-gray-900 font-extrabold bg-red-50 px-3 py-2 rounded-lg shadow-sm">
-              ⚠️ 20% chance of reserves dipping below {formatAmount(5000, currency)} in Q4; 📊 60% chance of profit growth above 10%.
-            </p>
-          </div>
-        )}
 
-                {/* Efficiency Tab */}
-        {activeTab === "efficiency" && (
-          <div className="font-bold">
-            <Bar
-              data={{
-                labels: monthsAhead,
-                datasets: [
-                  {
-                    label: "Inventory Turnover (x/month)",
-                    data: scenario.inventory,
-                    backgroundColor: "#A7F3D0",
-                    stack: "efficiency",
-                  },
-                  {
-                    label: "Expense Ratio (% of Revenue)",
-                    data: scenario.expenseRatio,
-                    backgroundColor: "#93C5FD",
-                    stack: "efficiency",
-                  },
-                ],
-              }}
-              options={{
-                scales: {
-                  x: { stacked: true },
-                  y: { stacked: true, beginAtZero: true },
-                },
-              }}
-            />
-            <p className="mt-3 text-base text-gray-900 font-extrabold bg-green-50 px-3 py-2 rounded-lg shadow-sm">
-              💡 Inventory turns ~4x per month; expenses remain ~40% of revenue, indicating stable efficiency.
-            </p>
-          </div>
-        )}
+{/* Risk Tab */}
+{activeTab === "risk" && (
+  <div>
+    <Line
+      data={{
+        labels: monthsAhead,
+        datasets: [
+          {
+            label: "Best Case Profit",
+            data: projectedProfit.map((p, i) => p + (projectedProfit[i] * 0.2)),
+            borderColor: "#3B82F6",
+            backgroundColor: "#93C5FD",
+            fill: true,
+            tension: 0.4,
+            pointRadius: 5,
+          },
+          {
+            label: "Most Likely Profit",
+            data: projectedProfit,
+            borderColor: "#14B8A6",
+            backgroundColor: "#67E8F9",
+            fill: true,
+            tension: 0.4,
+            pointRadius: 5,
+          },
+          {
+            label: "Worst Case Profit",
+            data: projectedProfit.map((p, i) => p - (projectedProfit[i] * 0.2)),
+            borderColor: "#EF4444",
+            backgroundColor: "#FCA5A5",
+            fill: true,
+            tension: 0.4,
+            pointRadius: 5,
+          },
+        ],
+      }}
+    />
+    <p className="mt-3 text-sm text-gray-700 font-bold">
+      ⚠️ By {monthsAhead[horizon-1]}, profit could range between 
+      {formatAmount(projectedProfit[horizon-1] * 0.8, currency)} (worst case) 
+      and {formatAmount(projectedProfit[horizon-1] * 1.2, currency)} (best case), 
+      with most likely profit at {formatAmount(projectedProfit[horizon-1], currency)}.
+    </p>
+  </div>
+)}
 
-        {/* Breakdown Tab */}
-        {activeTab === "breakdown" && (
-          <div className="font-bold">
-            <Bar
-              data={{
-                labels: ["Revenue", "Expenses", "Profit"],
-                datasets: [
-                  {
-                    label: "Financial Flow",
-                    data: [adjustedRevenue, -adjustedExpenses, adjustedProfit],
-                    backgroundColor: ["#10B981", "#EF4444", "#3B82F6"],
-                  },
-                ],
-              }}
-              options={{
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true } },
-              }}
-            />
-            <p className="mt-3 text-base text-gray-900 font-extrabold bg-purple-50 px-3 py-2 rounded-lg shadow-sm">
-              📊 Waterfall view shows how revenue flows into expenses and results in net profit.
-            </p>
-          </div>
-        )}
+{/* Efficiency Tab */}
+{activeTab === "efficiency" && (
+  <div>
+    <Bar
+      data={{
+        labels: monthsAhead,
+        datasets: [
+          {
+            label: "Inventory Turnover (x/month)",
+            data: projectedRevenue.map((rev, i) =>
+              projectedExpenses[i] > 0 ? rev / projectedExpenses[i] : 0
+            ),
+            backgroundColor: "#A7F3D0",
+            stack: "efficiency",
+          },
+          {
+            label: "Expense Ratio (% of Revenue)",
+            data: projectedExpenses.map((exp, i) =>
+              projectedRevenue[i] > 0 ? (exp / projectedRevenue[i]) * 100 : 0
+            ),
+            backgroundColor: "#93C5FD",
+            stack: "efficiency",
+          },
+        ],
+      }}
+      options={{
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true },
+        },
+      }}
+    />
+    <p className="mt-3 text-sm text-gray-700 font-bold">
+      ⚙️ In {monthsAhead[horizon-1]}, inventory turnover is 
+      {(projectedRevenue[horizon-1] / projectedExpenses[horizon-1]).toFixed(2)}x 
+      and expenses represent {(projectedExpenses[horizon-1] / projectedRevenue[horizon-1] * 100).toFixed(1)}% of revenue.
+    </p>
+  </div>
+)}
+
+{/* Breakdown Tab */}
+{activeTab === "breakdown" && (
+  <div>
+    <Bar
+      data={{
+        labels: ["Revenue", "Expenses", "Profit"],
+        datasets: [
+          {
+            label: "Financial Flow",
+            data: [adjustedRevenue, -adjustedExpenses, adjustedProfit],
+            backgroundColor: ["#10B981", "#EF4444", "#3B82F6"],
+          },
+        ],
+      }}
+      options={{
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } },
+      }}
+    />
+    <p className="mt-3 text-sm text-gray-700 font-bold">
+      🔎 Adjusted revenue is {formatAmount(adjustedRevenue, currency)}, 
+      expenses are {formatAmount(adjustedExpenses, currency)}, 
+      leaving a net profit of {formatAmount(adjustedProfit, currency)}.
+    </p>
+  </div>
+)}
+
+{/* Heatmap Tab */}
+{activeTab === "heatmap" && (
+  <div>
+    <Bar
+      data={{
+        labels: monthsAhead,
+        datasets: [
+          {
+            label: "Marketing",
+            data: transactions.filter(t => t.category === "Marketing").map(t => Number(t.amount)),
+            backgroundColor: "#F59E0B",
+          },
+          {
+            label: "Operations",
+            data: transactions.filter(t => t.category === "Operations").map(t => Number(t.amount)),
+            backgroundColor: "#3B82F6",
+          },
+          {
+            label: "Miscellaneous",
+            data: transactions.filter(t => t.category === "Miscellaneous").map(t => Number(t.amount)),
+            backgroundColor: "#10B981",
+          },
+        ],
+      }}
+      options={{
+        responsive: true,
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true },
+        },
+      }}
+    />
+    <p className="mt-3 text-sm text-gray-700 font-bold">
+      🌍 Latest month shows Marketing spend at {formatAmount(transactions.filter(t => t.category === "Marketing").map(t => Number(t.amount)).slice(-1)[0] || 0, currency)}, 
+      Operations at {formatAmount(transactions.filter(t => t.category === "Operations").map(t => Number(t.amount)).slice(-1)[0] || 0, currency)}, 
+      and Miscellaneous at {formatAmount(transactions.filter(t => t.category === "Miscellaneous").map(t => Number(t.amount)).slice(-1)[0] || 0, currency)}.
+    </p>
+  </div>
+)}
+
 
         {/* Heatmap Tab */}
-        {activeTab === "heatmap" && (
-          <div className="font-bold">
-            <Bar
-              data={{
-                labels: monthsAhead,
-                datasets: [
-                  {
-                    label: "Marketing",
-                    data: monthsAhead.map(() => totalExpenses * 0.3),
-                    backgroundColor: "#F59E0B",
-                  },
-                  {
-                    label: "Operations",
-                    data: monthsAhead.map(() => totalExpenses * 0.4),
-                    backgroundColor: "#3B82F6",
-                  },
-                  {
-                    label: "Miscellaneous",
-                    data: monthsAhead.map(() => totalExpenses * 0.3),
-                    backgroundColor: "#10B981",
-                  },
-                ],
-              }}
-              options={{
-                responsive: true,
-                scales: {
-                  x: { stacked: true },
-                  y: { stacked: true, beginAtZero: true },
-                },
-              }}
-            />
-            <p className="mt-3 text-base text-gray-900 font-extrabold bg-yellow-50 px-3 py-2 rounded-lg shadow-sm">
-              🔎 Heatmap shows Marketing and Operations dominate monthly expenses, with Miscellaneous steady at ~30%.
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+{activeTab === "heatmap" && (
+  <div>
+    <Bar
+      data={{
+        labels: monthsAhead,
+        datasets: [
+          {
+            label: "Marketing",
+            data: transactions.filter(t => t.category === "Marketing").map(t => Number(t.amount)),
+            backgroundColor: "#F59E0B",
+          },
+          {
+            label: "Operations",
+            data: transactions.filter(t => t.category === "Operations").map(t => Number(t.amount)),
+            backgroundColor: "#3B82F6",
+          },
+          {
+            label: "Miscellaneous",
+            data: transactions.filter(t => t.category === "Miscellaneous").map(t => Number(t.amount)),
+            backgroundColor: "#10B981",
+          },
+        ],
+      }}
+      options={{
+        responsive: true,
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true },
+        },
+      }}
+    />
+    <p className="mt-3 text-sm text-gray-700 font-bold">
+      🌍 In {monthsAhead[horizon-1]}, Marketing spend is 
+      {formatAmount(transactions.filter(t => t.category === "Marketing").map(t => Number(t.amount)).slice(-1)[0] || 0, currency)}, 
+      Operations spend is 
+      {formatAmount(transactions.filter(t => t.category === "Operations").map(t => Number(t.amount)).slice(-1)[0] || 0, currency)}, 
+      and Miscellaneous spend is 
+      {formatAmount(transactions.filter(t => t.category === "Miscellaneous").map(t => Number(t.amount)).slice(-1)[0] || 0, currency)}.
+    </p>
+  </div>
+)}
+</div>
+</div>
+);
 }
 
 export default Forecast;
-

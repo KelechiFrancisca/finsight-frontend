@@ -12,7 +12,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { API_BASE_URL } from "./apiConfig";  // ✅ added import
+import API_BASE_URL from "./apiConfig";  // ✅ named import
 
 ChartJS.register(
   CategoryScale,
@@ -34,7 +34,7 @@ function Alerts() {
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/alerts`, {   // ✅ updated to use API_BASE_URL
+    fetch(`${API_BASE_URL}/alerts`, {   // ✅ updated
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
@@ -203,8 +203,9 @@ function Alerts() {
                   ? "Monitor spending closely."
                   : "Informational alert — keep monitoring."}
               </p>
+
               {/* Scenario Badge */}
-                            <span
+              <span
                 className={`px-2 py-1 rounded-lg font-extrabold inline-block mt-2 ${
                   alert.type === "revenue"
                     ? "bg-green-100 text-green-700"
@@ -224,7 +225,7 @@ function Alerts() {
                   : "General Insight"}
               </span>
 
-              <div className="mt-3 flex space-x-4 font-bold">
+                            <div className="mt-3 flex space-x-4 font-bold">
                 <button
                   onClick={() => {
                     setSelectedAlert(alert);
@@ -279,7 +280,7 @@ function Alerts() {
                 onClick={async () => {
                   try {
                     // ✅ Call backend resolve route
-                    await fetch(`${API_BASE_URL}/alerts/${selectedAlert.id}/resolve`, {  // updated
+                    await fetch(`${API_BASE_URL}/alerts/${selectedAlert.id}/resolve`, {
                       method: "POST",
                       headers: {
                         "Content-Type": "application/json",
@@ -328,7 +329,7 @@ function Alerts() {
         <button
           onClick={async () => {
             try {
-              const res = await fetch(`${API_BASE_URL}/alerts`, {   // updated
+              const res = await fetch(`${API_BASE_URL}/alerts`, {
                 headers: {
                   Authorization: `Bearer ${localStorage.getItem("token")}`,
                 },
@@ -367,3 +368,4 @@ function Alerts() {
 }
 
 export default Alerts;
+
