@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Bar } from "react-chartjs-2";
 import Papa from "papaparse";
 import { FaArrowUp, FaArrowDown, FaBalanceScale, FaPercentage, FaPlus } from "react-icons/fa";
-
+import API_BASE_URL from "./apiConfig"; // ✅ unified import
 
 // ✅ Currency symbols + formatter
 const currencySymbols = {
@@ -24,13 +24,6 @@ function formatAmount(amount, currency = "NGN") {
   return `${symbol}${Number(amount).toLocaleString()}`;
 }
 
-// ✅ Universal base URL (local vs Render)
-const baseUrl =
-  process.env.REACT_APP_API_URL || 
-  (window.location.hostname === "localhost"
-    ? "http://127.0.0.1:5000"
-    : "https://finsight-backend-byae.onrender.com/api");
-
 // ✅ Universal API fetch helper
 const apiFetch = async (endpoint, options = {}) => {
   const token = localStorage.getItem("token");
@@ -39,7 +32,7 @@ const apiFetch = async (endpoint, options = {}) => {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers,
   };
-  const res = await fetch(`${baseUrl}/api${endpoint}`, { ...options, headers });
+  const res = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
   if (!res.ok) {
     throw new Error(`API error: ${res.status}`);
   }
@@ -107,7 +100,7 @@ function Dashboard() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
-    fetch(`${baseUrl}/api/settings`, {
+    fetch(`${API_BASE_URL}/settings`, {
       headers: { Authorization: "Bearer " + token },
     })
       .then(res => res.json())
@@ -115,7 +108,7 @@ function Dashboard() {
       .catch(err => console.error("Error fetching settings:", err));
   }, []);
 
-  // Logout clears state
+    // Logout clears state
   const handleLogout = () => {
     apiFetch("/clear_entries", { method: "DELETE" });
     localStorage.clear();
@@ -182,8 +175,14 @@ function Dashboard() {
   };
 
   // Metrics
-  const totalRevenue = transactions.filter(t => t.type.toLowerCase() === "income").reduce((sum, t) => sum + Number(t.amount), 0);
-  const totalExpenses = transactions.filter(t => t.type.toLowerCase() === "expense").reduce((sum, t) => sum + Number(t.amount), 0);
+  const totalRevenue = transactions
+    .filter(t => t.type.toLowerCase() === "income")
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+
+  const totalExpenses = transactions
+    .filter(t => t.type.toLowerCase() === "expense")
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+
   const netProfit = totalRevenue - totalExpenses;
   const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
@@ -195,6 +194,7 @@ function Dashboard() {
     if (t.type.toLowerCase() === "income") monthlyData[key].income += Number(t.amount);
     else monthlyData[key].expense += Number(t.amount);
   });
+
   const chartData = {
     labels: Object.keys(monthlyData),
     datasets: [
@@ -202,9 +202,16 @@ function Dashboard() {
       { label: "Expenses", data: Object.values(monthlyData).map(m => m.expense), backgroundColor: "rgba(239,68,68,0.7)" },
     ],
   };
-  const options = { responsive: true, plugins: { legend: { position: "top" }, title: { display: true, text: "Revenue vs Expenses" } } };
 
-    // ✅ Expense change calculation
+  const options = { 
+    responsive: true, 
+    plugins: { 
+      legend: { position: "top" }, 
+      title: { display: true, text: "Revenue vs Expenses" } 
+    } 
+  };
+
+      // ✅ Expense change calculation
   const now = new Date();
   const thisMonthKey = now.toISOString().slice(0,7);
   now.setMonth(now.getMonth() - 1);
@@ -222,7 +229,7 @@ function Dashboard() {
         <h1 className="text-4xl font-extrabold">Dashboard</h1>
         <div className="flex items-center space-x-4">
           <div className="flex flex-col">
-            <a href={`${baseUrl}/sample_csv`} className="px-4 py-2 bg-green-600 text-white rounded font-bold" download="sample.csv">
+            <a href={`${API_BASE_URL}/sample_csv`} className="px-4 py-2 bg-green-600 text-white rounded font-bold" download="sample.csv">
               Download Sample CSV
             </a>
             <p className="text-sm text-gray-500">Use this template to avoid upload errors.</p>
@@ -282,11 +289,11 @@ function Dashboard() {
       </div>
 
       {/* Cashflow Insights */}
-      <div className={darkMode ? "bg-gray-800 p-6 rounded-lg shadow-md mb-6 text-white" : `p-6 rounded-lg shadow-md mb-6 ${netProfit < 2000 ? "bg-red-100" : "bg-teal-50"}`}>
+      <div className={darkMode ? "bg-gray-800 p-6 rounded-lg shadow-md mb-6 text-white" : `p-6 rounded-lg shadow-md mb-6 ${netProfit < 0 ? "bg-red-100" : "bg-teal-50"}`}>
         <h2 className="text-lg font-bold mb-2">📊 Cashflow Insights</h2>
-        <p>📊 Expenses increased by {expenseChange}% compared to last month.</p>
-        <p>🔮 Forecast: Cashflow looks stable for the next 2 months.</p>
-        <p>💡 Suggested Action: Consider renegotiating supplier contracts or cutting non‑essential costs.</p>
+        <p>📊 Expenses changed by {expenseChange}% compared to last month.</p>
+        <p>🔮 Forecast: {netProfit < 0 ? "Cashflow looks unstable for the next 2 months." : "Cashflow looks stable for the next 2 months."}</p>
+        <p>💡 Suggested Action: {netProfit < 0 ? "Consider renegotiating supplier contracts or cutting non‑essential costs." : "Explore growth investments to boost revenue."}</p>
         <p>📈 Net Profit: <span className="font-bold">{formatAmount(netProfit, currency)}</span> (Margin: {profitMargin.toFixed(2)}%)</p>
       </div>
 
@@ -322,12 +329,12 @@ function Dashboard() {
         )}
       </div>
 
-      {/* Chart */}
+            {/* Chart */}
       <div className={darkMode ? "bg-gray-800 p-6 rounded shadow mb-8 text-white" : "bg-white p-6 rounded shadow mb-8"}>
         <Bar data={chartData} options={options} />
       </div>
 
-            {/* Multi-row Form */}
+      {/* Multi-row Form */}
       {showForm && (
         <div className={darkMode ? "bg-gray-800 p-6 rounded mb-8 text-white" : "bg-gray-100 p-6 rounded mb-8"}>
           <h2 className="text-2xl font-bold mb-4">New Transactions</h2>
@@ -399,33 +406,41 @@ function Dashboard() {
             </tr>
           </thead>
           <tbody>
-            {transactions.map((t) => (
-              <tr key={t.id} className={darkMode ? "border-b hover:bg-gray-700" : "border-b hover:bg-gray-50"}>
-                <td className="py-2 px-4">{t.date}</td>
-                <td className={`py-2 px-4 font-semibold ${t.type.toLowerCase() === "income" ? (darkMode ? "text-green-300" : "text-green-600") : (darkMode ? "text-red-300" : "text-red-600")}`}>
-                  {t.type}
-                </td>
-                <td className="py-2 px-4">{t.category}</td>
-                <td className="py-2 px-4">{t.description}</td>
-                <td className={`py-2 px-4 font-bold ${t.type.toLowerCase() === "income" ? (darkMode ? "text-green-300" : "text-green-600") : (darkMode ? "text-red-300" : "text-red-600")}`}>
-                  {formatAmount(t.amount, currency)}
-                </td>
-                <td className="py-2 px-4 space-x-2">
-                  <button
-                    onClick={() => editTransaction(t.id)}
-                    className="px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 font-bold"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => deleteTransaction(t.id)}
-                    className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 font-bold"
-                  >
-                    Delete
-                  </button>
+            {transactions.length > 0 ? (
+              transactions.map((t) => (
+                <tr key={t.id} className={darkMode ? "border-b hover:bg-gray-700" : "border-b hover:bg-gray-50"}>
+                  <td className="py-2 px-4">{t.date}</td>
+                  <td className={`py-2 px-4 font-semibold ${t.type.toLowerCase() === "income" ? (darkMode ? "text-green-300" : "text-green-600") : (darkMode ? "text-red-300" : "text-red-600")}`}>
+                    {t.type}
+                  </td>
+                  <td className="py-2 px-4">{t.category}</td>
+                  <td className="py-2 px-4">{t.description}</td>
+                  <td className={`py-2 px-4 font-bold ${t.type.toLowerCase() === "income" ? (darkMode ? "text-green-300" : "text-green-600") : (darkMode ? "text-red-300" : "text-red-600")}`}>
+                    {formatAmount(t.amount, currency)}
+                  </td>
+                  <td className="py-2 px-4 space-x-2">
+                    <button
+                      onClick={() => editTransaction(t.id)}
+                      className="px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 font-bold"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => deleteTransaction(t.id)}
+                      className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 font-bold"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="6" className="py-4 text-center">
+                  No transactions available.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
@@ -434,3 +449,4 @@ function Dashboard() {
 }
 
 export default Dashboard;
+
