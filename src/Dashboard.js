@@ -57,6 +57,7 @@ function Dashboard() {
   const [darkMode, setDarkMode] = useState(false);
   const [alerts, setAlerts] = useState([]);
   const [currency, setCurrency] = useState("USD");
+  
 
   // Protect dashboard
   useEffect(() => {
@@ -289,13 +290,33 @@ function Dashboard() {
       </div>
 
       {/* Cashflow Insights */}
-      <div className={darkMode ? "bg-gray-800 p-6 rounded-lg shadow-md mb-6 text-white" : `p-6 rounded-lg shadow-md mb-6 ${netProfit < 0 ? "bg-red-100" : "bg-teal-50"}`}>
-        <h2 className="text-lg font-bold mb-2">📊 Cashflow Insights</h2>
-        <p>📊 Expenses changed by {expenseChange}% compared to last month.</p>
-        <p>🔮 Forecast: {netProfit < 0 ? "Cashflow looks unstable for the next 2 months." : "Cashflow looks stable for the next 2 months."}</p>
-        <p>💡 Suggested Action: {netProfit < 0 ? "Consider renegotiating supplier contracts or cutting non‑essential costs." : "Explore growth investments to boost revenue."}</p>
-        <p>📈 Net Profit: <span className="font-bold">{formatAmount(netProfit, currency)}</span> (Margin: {profitMargin.toFixed(2)}%)</p>
-      </div>
+<div
+  className={
+    darkMode
+      ? "bg-gray-800 p-6 rounded-lg shadow-md mb-6 text-white"
+      : `p-6 rounded-lg shadow-md mb-6 ${
+          netProfit < 0 ? "bg-red-100" : "bg-teal-50"
+        }`
+  }
+>
+  <h2 className="text-lg font-bold mb-2">📊 Cashflow Insights</h2>
+  <p>📊 Expenses changed by {expenseChange}% compared to last month.</p>
+  <p>
+    🔮 Forecast: Cashflow looks {netProfit < 0 ? "unstable" : "stable"} for the next few months.
+  </p>
+  <p>
+    💡 Suggested Action:{" "}
+    {netProfit < 0
+      ? "Consider renegotiating supplier contracts or cutting non‑essential costs."
+      : "Explore growth investments to boost revenue."}
+  </p>
+  <p>
+    📈 Net Profit:{" "}
+    <span className="font-bold">{formatAmount(netProfit, currency)}</span>{" "}
+    (Margin: {profitMargin.toFixed(2)}%)
+  </p>
+</div>
+
 
       {/* Alerts Panel */}
       <div className={darkMode ? "bg-gray-800 p-6 rounded shadow mb-8 text-white" : "bg-white p-6 rounded shadow mb-8"}>
