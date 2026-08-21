@@ -87,26 +87,42 @@ function Forecast() {
 }, []); // ✅ empty dependency array, no ESLint warning
 
   // Totals
-  const totalRevenue = transactions
-    .filter(t => t.type && t.type.toLowerCase() === "income")
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+const totalRevenue = transactions
+  .filter(t => t.type && t.type.toLowerCase() === "income")
+  .reduce((sum, t) => sum + Number(t.amount), 0);
 
-  const totalExpenses = transactions
-    .filter(t => t.type && t.type.toLowerCase() === "expense")
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+const totalExpenses = transactions
+  .filter(t => t.type && t.type.toLowerCase() === "expense")
+  .reduce((sum, t) => sum + Number(t.amount), 0);
 
-  const netProfit = totalRevenue - totalExpenses;
-  const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+const netProfit = totalRevenue - totalExpenses;
+const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
-  // ✅ Dynamic expense change vs last month
-  const expenseChange = (() => {
-    const expenses = transactions.filter(t => t.type && t.type.toLowerCase() === "expense");
-    if (expenses.length < 2) return 0;
-    const sorted = expenses.sort((a, b) => new Date(a.date) - new Date(b.date));
-    const prev = Number(sorted[sorted.length - 2].amount);
-    const curr = Number(sorted[sorted.length - 1].amount);
-    return prev > 0 ? ((curr - prev) / prev) * 100 : 0;
-  })();
+// ✅ Unified expense change calculation (same as Dashboard.js)
+const now = new Date();
+const thisMonthKey = now.toISOString().slice(0, 7);
+now.setMonth(now.getMonth() - 1);
+const lastMonthKey = now.toISOString().slice(0, 7);
+
+const monthlyData = {};
+transactions.forEach(t => {
+  const key = t.date.slice(0, 7);
+  if (!monthlyData[key]) monthlyData[key] = { income: 0, expense: 0 };
+  if (t.type && t.type.toLowerCase() === "income") {
+    monthlyData[key].income += Number(t.amount);
+  } else if (t.type && t.type.toLowerCase() === "expense") {
+    monthlyData[key].expense += Number(t.amount);
+  }
+});
+
+const lastMonthExpenses = monthlyData[lastMonthKey]?.expense || 0;
+const thisMonthExpenses = monthlyData[thisMonthKey]?.expense || 0;
+
+// Keep expenseChange as a number
+const expenseChange = lastMonthExpenses > 0
+  ? ((thisMonthExpenses - lastMonthExpenses) / lastMonthExpenses) * 100
+  : 0;
+
 
   // Scenario datasets (still placeholders, but can be replaced with backend data later)
   const scenarios = {
