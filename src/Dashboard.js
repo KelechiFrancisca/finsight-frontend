@@ -48,15 +48,17 @@ function normalizeDate(dateStr) {
   return dateStr;
 }
 
-function Dashboard() {
+// ✅ Updated Dashboard.js
+function Dashboard({ isDarkMode, setIsDarkMode }) {
   const [transactions, setTransactions] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [newTransactions, setNewTransactions] = useState([
     { date: "", type: "Expense", category: "", description: "", amount: "" }
   ]);
-  const [darkMode, setDarkMode] = useState(false);
+  // ❌ removed local darkMode state here
   const [alerts, setAlerts] = useState([]);
   const [currency, setCurrency] = useState("USD");
+
   
 
   // Protect dashboard
@@ -224,75 +226,76 @@ function Dashboard() {
     : 0;
 
   return (
-    <div className={darkMode ? "bg-gray-900 text-white min-h-screen p-6" : "bg-gray-50 text-black min-h-screen p-6"}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-4xl font-extrabold">Dashboard</h1>
-        <div className="flex items-center space-x-4">
-          <div className="flex flex-col">
-            <a href={`${API_BASE_URL}/sample_csv`} className="px-4 py-2 bg-green-600 text-white rounded font-bold" download="sample.csv">
-              Download Sample CSV
-            </a>
-            <p className="text-sm text-gray-500">Use this template to avoid upload errors.</p>
-          </div>
-          <label className="px-4 py-2 bg-blue-600 text-white rounded cursor-pointer font-bold">
-            Upload CSV
-            <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
-          </label>
-          <button onClick={() => setShowForm(true)} className="flex items-center px-4 py-2 bg-green-600 text-white rounded font-bold">
-            <FaPlus className="mr-2" /> Add Transactions
-          </button>
-          <button onClick={() => setDarkMode(!darkMode)} className="px-4 py-2 bg-gray-800 text-white rounded font-bold">
-            Toggle {darkMode ? "Light" : "Dark"} Mode
-          </button>
-          <button onClick={handleLogout} className="px-4 py-2 bg-red-600 text-white rounded font-bold">Logout</button>
+  <div className={isDarkMode ? "bg-gray-900 text-white min-h-screen p-6" : "bg-gray-50 text-black min-h-screen p-6"}>
+    {/* Header */}
+    <div className="flex items-center justify-between mb-8">
+      <h1 className="text-4xl font-extrabold">Dashboard</h1>
+      <div className="flex items-center space-x-4">
+        <div className="flex flex-col">
+          <a href={`${API_BASE_URL}/sample_csv`} className="px-4 py-2 bg-green-600 text-white rounded font-bold" download="sample.csv">
+            Download Sample CSV
+          </a>
+          <p className="text-sm text-gray-500">Use this template to avoid upload errors.</p>
         </div>
+        <label className="px-4 py-2 bg-blue-600 text-white rounded cursor-pointer font-bold">
+          Upload CSV
+          <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
+        </label>
+        <button onClick={() => setShowForm(true)} className="flex items-center px-4 py-2 bg-green-600 text-white rounded font-bold">
+          <FaPlus className="mr-2" /> Add Transactions
+        </button>
+        {/* ✅ Updated toggle button */}
+        <button onClick={() => setIsDarkMode(!isDarkMode)} className="px-4 py-2 bg-gray-800 text-white rounded font-bold">
+          Toggle {isDarkMode ? "Light" : "Dark"} Mode
+        </button>
+        <button onClick={handleLogout} className="px-4 py-2 bg-red-600 text-white rounded font-bold">Logout</button>
       </div>
+    </div>
 
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className={darkMode ? "bg-gray-800 p-6 rounded-lg shadow text-white" : "bg-green-100 p-6 rounded-lg shadow"}>
-          <div className="flex justify-between items-center">
-            <h3 className="text-xl font-bold">Total Revenue</h3>
-            <FaArrowUp className={darkMode ? "text-green-300" : "text-green-600"} />
-          </div>
-          <p className={darkMode ? "text-3xl font-extrabold text-green-300" : "text-3xl font-extrabold text-green-600"}>
-            {formatAmount(totalRevenue, currency)}
-          </p>
+    {/* Metrics Grid */}
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className={isDarkMode ? "bg-gray-800 p-6 rounded-lg shadow text-white" : "bg-green-100 p-6 rounded-lg shadow"}>
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-bold">Total Revenue</h3>
+          <FaArrowUp className={isDarkMode ? "text-green-300" : "text-green-600"} />
         </div>
-        <div className={darkMode ? "bg-gray-800 p-6 rounded-lg shadow text-white" : "bg-red-100 p-6 rounded-lg shadow"}>
-          <div className="flex justify-between items-center">
-            <h3 className="text-xl font-bold">Total Expenses</h3>
-            <FaArrowDown className={darkMode ? "text-red-300" : "text-red-600"} />
-          </div>
-          <p className={darkMode ? "text-3xl font-extrabold text-red-300" : "text-3xl font-extrabold text-red-600"}>
-            {formatAmount(totalExpenses, currency)}
-          </p>
-        </div>
-        <div className={darkMode ? "bg-gray-800 p-6 rounded-lg shadow text-white" : "bg-blue-100 p-6 rounded-lg shadow"}>
-          <div className="flex justify-between items-center">
-            <h3 className="text-xl font-bold">Net Profit</h3>
-            <FaBalanceScale className={darkMode ? "text-blue-300" : "text-blue-600"} />
-          </div>
-          <p className={darkMode ? "text-3xl font-extrabold text-blue-300" : "text-3xl font-extrabold text-blue-600"}>
-            {formatAmount(netProfit, currency)}
-          </p>
-        </div>
-        <div className={darkMode ? "bg-gray-800 p-6 rounded-lg shadow text-white" : "bg-purple-100 p-6 rounded-lg shadow"}>
-          <div className="flex justify-between items-center">
-            <h3 className="text-xl font-bold">Profit Margin</h3>
-            <FaPercentage className={darkMode ? "text-purple-300" : "text-purple-600"} />
-          </div>
-          <p className={darkMode ? "text-3xl font-extrabold text-purple-300" : "text-3xl font-extrabold text-purple-600"}>
-            {profitMargin.toFixed(2)}%
-          </p>
-        </div>
+        <p className={isDarkMode ? "text-3xl font-extrabold text-green-300" : "text-3xl font-extrabold text-green-600"}>
+          {formatAmount(totalRevenue, currency)}
+        </p>
       </div>
+      <div className={isDarkMode ? "bg-gray-800 p-6 rounded-lg shadow text-white" : "bg-red-100 p-6 rounded-lg shadow"}>
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-bold">Total Expenses</h3>
+          <FaArrowDown className={isDarkMode ? "text-red-300" : "text-red-600"} />
+        </div>
+        <p className={isDarkMode ? "text-3xl font-extrabold text-red-300" : "text-3xl font-extrabold text-red-600"}>
+          {formatAmount(totalExpenses, currency)}
+        </p>
+      </div>
+      <div className={isDarkMode ? "bg-gray-800 p-6 rounded-lg shadow text-white" : "bg-blue-100 p-6 rounded-lg shadow"}>
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-bold">Net Profit</h3>
+          <FaBalanceScale className={isDarkMode ? "text-blue-300" : "text-blue-600"} />
+        </div>
+        <p className={isDarkMode ? "text-3xl font-extrabold text-blue-300" : "text-3xl font-extrabold text-blue-600"}>
+          {formatAmount(netProfit, currency)}
+        </p>
+      </div>
+      <div className={isDarkMode ? "bg-gray-800 p-6 rounded-lg shadow text-white" : "bg-purple-100 p-6 rounded-lg shadow"}>
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-bold">Profit Margin</h3>
+          <FaPercentage className={isDarkMode ? "text-purple-300" : "text-purple-600"} />
+        </div>
+        <p className={isDarkMode ? "text-3xl font-extrabold text-purple-300" : "text-3xl font-extrabold text-purple-600"}>
+          {profitMargin.toFixed(2)}%
+        </p>
+      </div>
+    </div>
 
       {/* Cashflow Insights */}
 <div
   className={
-    darkMode
+    isDarkMode
       ? "bg-gray-800 p-6 rounded-lg shadow-md mb-6 text-white"
       : `p-6 rounded-lg shadow-md mb-6 ${
           netProfit < 0 ? "bg-red-100" : "bg-teal-50"
@@ -317,154 +320,165 @@ function Dashboard() {
   </p>
 </div>
 
+{/* Alerts Panel */}
+<div className={isDarkMode ? "bg-gray-800 p-6 rounded shadow mb-8 text-white" : "bg-white p-6 rounded shadow mb-8"}>
+  <h2 className="text-2xl font-bold mb-4">Alerts</h2>
+  {alerts.length > 0 ? (
+    alerts.map((a) => {
+      const level = a.level.toLowerCase();
+      let borderColor = isDarkMode ? "border-blue-300" : "border-blue-600";
+      let titleColor = isDarkMode ? "text-blue-300" : "text-blue-600";
+      let title = "Informational";
 
-      {/* Alerts Panel */}
-      <div className={darkMode ? "bg-gray-800 p-6 rounded shadow mb-8 text-white" : "bg-white p-6 rounded shadow mb-8"}>
-        <h2 className="text-2xl font-bold mb-4">Alerts</h2>
-        {alerts.length > 0 ? (
-          alerts.map((a) => {
-            const level = a.level.toLowerCase();
-            let borderColor = darkMode ? "border-blue-300" : "border-blue-600";
-            let titleColor = darkMode ? "text-blue-300" : "text-blue-600";
-            let title = "Informational";
+      if (level === "high") {
+        borderColor = isDarkMode ? "border-red-300" : "border-red-600";
+        titleColor = isDarkMode ? "text-red-300" : "text-red-600";
+        title = "High Priority";
+      } else if (level === "medium") {
+        borderColor = isDarkMode ? "border-yellow-300" : "border-yellow-600";
+        titleColor = isDarkMode ? "text-yellow-300" : "text-yellow-600";
+        title = "Medium Priority";
+      }
 
-            if (level === "high") {
-              borderColor = darkMode ? "border-red-300" : "border-red-600";
-              titleColor = darkMode ? "text-red-300" : "text-red-600";
-              title = "High Priority";
-            } else if (level === "medium") {
-              borderColor = darkMode ? "border-yellow-300" : "border-yellow-600";
-              titleColor = darkMode ? "text-yellow-300" : "text-yellow-600";
-              title = "Medium Priority";
-            }
-
-            return (
-              <div key={a.id} className={`p-4 rounded shadow mb-4 border-l-4 ${borderColor}`}>
-                <h3 className={`text-lg font-bold ${titleColor}`}>{title}</h3>
-                <p>{a.message}</p>
-              </div>
-            );
-          })
-        ) : (
-          <p>No alerts available.</p>
-        )}
-      </div>
+      return (
+        <div key={a.id} className={`p-4 rounded shadow mb-4 border-l-4 ${borderColor}`}>
+          <h3 className={`text-lg font-bold ${titleColor}`}>{title}</h3>
+          <p>{a.message}</p>
+        </div>
+      );
+    })
+  ) : (
+    <p>No alerts available.</p>
+  )}
+</div>
 
             {/* Chart */}
-      <div className={darkMode ? "bg-gray-800 p-6 rounded shadow mb-8 text-white" : "bg-white p-6 rounded shadow mb-8"}>
-        <Bar data={chartData} options={options} />
-      </div>
+<div className={isDarkMode ? "bg-gray-800 p-6 rounded shadow mb-8 text-white" : "bg-white p-6 rounded shadow mb-8"}>
+  <Bar data={chartData} options={options} />
+</div>
 
-      {/* Multi-row Form */}
-      {showForm && (
-        <div className={darkMode ? "bg-gray-800 p-6 rounded mb-8 text-white" : "bg-gray-100 p-6 rounded mb-8"}>
-          <h2 className="text-2xl font-bold mb-4">New Transactions</h2>
-          <form onSubmit={handleSaveAll} className="space-y-6">
-            {newTransactions.map((t, index) => (
-              <div key={index} className="grid grid-cols-5 gap-4">
-                <input 
-                  type="date" 
-                  value={t.date} 
-                  onChange={(e) => handleChange(index, "date", e.target.value)} 
-                  className={darkMode ? "p-2 border-2 rounded bg-gray-700 text-white" : "p-2 border-2 rounded text-black"} 
-                  required 
-                />
-                <select 
-                  value={t.type} 
-                  onChange={(e) => handleChange(index, "type", e.target.value)} 
-                  className={darkMode ? "p-2 border-2 rounded bg-gray-700 text-white" : "p-2 border-2 rounded text-black"}
-                >
-                  <option>Expense</option>
-                  <option>Income</option>
-                </select>
-                <input 
-                  type="text" 
-                  placeholder="Category" 
-                  value={t.category} 
-                  onChange={(e) => handleChange(index, "category", e.target.value)} 
-                  className={darkMode ? "p-2 border-2 rounded bg-gray-700 text-white" : "p-2 border-2 rounded text-black"} 
-                  required 
-                />
-                <input 
-                  type="text" 
-                  placeholder="Description" 
-                  value={t.description} 
-                  onChange={(e) => handleChange(index, "description", e.target.value)} 
-                  className={darkMode ? "p-2 border-2 rounded bg-gray-700 text-white" : "p-2 border-2 rounded text-black"} 
-                  required 
-                />
-                <input 
-                  type="number" 
-                  placeholder="Amount" 
-                  value={t.amount} 
-                  onChange={(e) => handleChange(index, "amount", e.target.value)} 
-                  className={darkMode ? "p-2 border-2 rounded bg-gray-700 text-white" : "p-2 border-2 rounded text-black"} 
-                  required 
-                />
-              </div>
-            ))}
-            <div className="flex space-x-4 mt-4">
-              <button type="button" onClick={handleAddRow} className="px-4 py-2 bg-blue-600 text-white rounded font-bold">Add Another Row</button>
-              <button type="button" onClick={() => setShowForm(false)} className="px-6 py-2 bg-gray-400 text-white font-bold rounded">Cancel</button>
-              <button type="submit" className="px-6 py-2 bg-green-600 text-white font-bold rounded">Save Transactions</button>
-            </div>
-          </form>
+{/* Multi-row Form */}
+{showForm && (
+  <div className={isDarkMode ? "bg-gray-800 p-6 rounded mb-8 text-white" : "bg-gray-100 p-6 rounded mb-8"}>
+    <h2 className="text-2xl font-bold mb-4">New Transactions</h2>
+    <form onSubmit={handleSaveAll} className="space-y-6">
+      {newTransactions.map((t, index) => (
+        <div key={index} className="grid grid-cols-5 gap-4">
+          <input 
+            type="date" 
+            value={t.date} 
+            onChange={(e) => handleChange(index, "date", e.target.value)} 
+            className={isDarkMode ? "p-2 border-2 rounded bg-gray-700 text-white" : "p-2 border-2 rounded text-black"} 
+            required 
+          />
+          <select 
+            value={t.type} 
+            onChange={(e) => handleChange(index, "type", e.target.value)} 
+            className={isDarkMode ? "p-2 border-2 rounded bg-gray-700 text-white" : "p-2 border-2 rounded text-black"}
+          >
+            <option>Expense</option>
+            <option>Income</option>
+          </select>
+          <input 
+            type="text" 
+            placeholder="Category" 
+            value={t.category} 
+            onChange={(e) => handleChange(index, "category", e.target.value)} 
+            className={isDarkMode ? "p-2 border-2 rounded bg-gray-700 text-white" : "p-2 border-2 rounded text-black"} 
+            required 
+          />
+          <input 
+            type="text" 
+            placeholder="Description" 
+            value={t.description} 
+            onChange={(e) => handleChange(index, "description", e.target.value)} 
+            className={isDarkMode ? "p-2 border-2 rounded bg-gray-700 text-white" : "p-2 border-2 rounded text-black"} 
+            required 
+          />
+          <input 
+            type="number" 
+            placeholder="Amount" 
+            value={t.amount} 
+            onChange={(e) => handleChange(index, "amount", e.target.value)} 
+            className={isDarkMode ? "p-2 border-2 rounded bg-gray-700 text-white" : "p-2 border-2 rounded text-black"} 
+            required 
+          />
         </div>
-      )}
+      ))}
+      <div className="flex space-x-4 mt-4">
+        <button type="button" onClick={handleAddRow} className="px-4 py-2 bg-blue-600 text-white rounded font-bold">Add Another Row</button>
+        <button type="button" onClick={() => setShowForm(false)} className="px-6 py-2 bg-gray-400 text-white font-bold rounded">Cancel</button>
+        <button type="submit" className="px-6 py-2 bg-green-600 text-white font-bold rounded">Save Transactions</button>
+      </div>
+    </form>
+  </div>
+)}
 
       {/* Recent Transactions */}
-      <div className={darkMode ? "bg-gray-800 p-6 rounded shadow text-white" : "bg-white p-6 rounded shadow"}>
-        <h2 className="text-2xl font-bold mb-4">Recent Transactions</h2>
-        <table className={darkMode ? "min-w-full text-left text-base border-collapse text-white" : "min-w-full text-left text-base border-collapse text-black"}>
-          <thead>
-            <tr className={darkMode ? "border-b bg-gray-700 font-bold" : "border-b bg-gray-100 font-bold"}>
-              <th className="py-2 px-4">Date</th>
-              <th className="py-2 px-4">Type</th>
-              <th className="py-2 px-4">Category</th>
-              <th className="py-2 px-4">Description</th>
-              <th className="py-2 px-4">Amount</th>
-              <th className="py-2 px-4">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {transactions.length > 0 ? (
-              transactions.map((t) => (
-                <tr key={t.id} className={darkMode ? "border-b hover:bg-gray-700" : "border-b hover:bg-gray-50"}>
-                  <td className="py-2 px-4">{t.date}</td>
-                  <td className={`py-2 px-4 font-semibold ${t.type.toLowerCase() === "income" ? (darkMode ? "text-green-300" : "text-green-600") : (darkMode ? "text-red-300" : "text-red-600")}`}>
-                    {t.type}
-                  </td>
-                  <td className="py-2 px-4">{t.category}</td>
-                  <td className="py-2 px-4">{t.description}</td>
-                  <td className={`py-2 px-4 font-bold ${t.type.toLowerCase() === "income" ? (darkMode ? "text-green-300" : "text-green-600") : (darkMode ? "text-red-300" : "text-red-600")}`}>
-                    {formatAmount(t.amount, currency)}
-                  </td>
-                  <td className="py-2 px-4 space-x-2">
-                    <button
-                      onClick={() => editTransaction(t.id)}
-                      className="px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 font-bold"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => deleteTransaction(t.id)}
-                      className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 font-bold"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="6" className="py-4 text-center">
-                  No transactions available.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+<div className={isDarkMode ? "bg-gray-800 p-6 rounded shadow text-white" : "bg-white p-6 rounded shadow"}>
+  <h2 className="text-2xl font-bold mb-4">Recent Transactions</h2>
+  <table className={isDarkMode ? "min-w-full text-left text-base border-collapse text-white" : "min-w-full text-left text-base border-collapse text-black"}>
+    <thead>
+      <tr className={isDarkMode ? "border-b bg-gray-700 font-bold" : "border-b bg-gray-100 font-bold"}>
+        <th className="py-2 px-4">Date</th>
+        <th className="py-2 px-4">Type</th>
+        <th className="py-2 px-4">Category</th>
+        <th className="py-2 px-4">Description</th>
+        <th className="py-2 px-4">Amount</th>
+        <th className="py-2 px-4">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {transactions.length > 0 ? (
+        transactions.map((t) => (
+          <tr key={t.id} className={isDarkMode ? "border-b hover:bg-gray-700" : "border-b hover:bg-gray-50"}>
+            <td className="py-2 px-4">{t.date}</td>
+            <td
+              className={`py-2 px-4 font-semibold ${
+                t.type.toLowerCase() === "income"
+                  ? (isDarkMode ? "text-green-300" : "text-green-600")
+                  : (isDarkMode ? "text-red-300" : "text-red-600")
+              }`}
+            >
+              {t.type}
+            </td>
+            <td className="py-2 px-4">{t.category}</td>
+            <td className="py-2 px-4">{t.description}</td>
+            <td
+              className={`py-2 px-4 font-bold ${
+                t.type.toLowerCase() === "income"
+                  ? (isDarkMode ? "text-green-300" : "text-green-600")
+                  : (isDarkMode ? "text-red-300" : "text-red-600")
+              }`}
+            >
+              {formatAmount(t.amount, currency)}
+            </td>
+            <td className="py-2 px-4 space-x-2">
+              <button
+                onClick={() => editTransaction(t.id)}
+                className="px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 font-bold"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => deleteTransaction(t.id)}
+                className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 font-bold"
+              >
+                Delete
+              </button>
+            </td>
+          </tr>
+        ))
+      ) : (
+        <tr>
+          <td colSpan="6" className="py-4 text-center">
+            No transactions available.
+          </td>
+        </tr>
+      )}
+    </tbody>
+  </table>
+</div>
     </div>
   );
 }

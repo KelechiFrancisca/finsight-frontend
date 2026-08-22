@@ -25,17 +25,20 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const token = localStorage.getItem("token"); // ✅ check if logged in
+  const [isDarkMode, setIsDarkMode] = useState(false); // ✅ global dark mode state
+  const token = localStorage.getItem("token");
 
-  // ✅ Log backend URL to confirm React is reading .env.production
   console.log("Backend URL:", process.env.REACT_APP_API_URL);
 
   return (
     <Router>
-      <div className="flex min-h-screen bg-gray-50">
+      {/* Apply dark mode class to the entire app */}
+      <div className={`flex min-h-screen ${isDarkMode ? "dark bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"}`}>
+        
         {/* Sidebar */}
         {sidebarOpen && (
-          <aside className="w-64 sm:w-56 md:w-64 bg-white shadow-md p-6 transition-transform duration-300">
+          <aside className={`w-64 sm:w-56 md:w-64 shadow-md p-6 transition-transform duration-300 
+            ${isDarkMode ? "bg-gray-800 text-gray-100" : "bg-white text-gray-900"}`}>
             <div className="mb-6 flex justify-between items-center">
               <div className="flex items-center space-x-2">
                 <span className="text-3xl font-bold text-blue-600">$</span>
@@ -48,16 +51,16 @@ function App() {
                 ✖
               </button>
             </div>
-            <p className="text-gray-500 text-sm mb-6">Business Analytics</p>
+            <p className="text-sm mb-6">Business Analytics</p>
             <nav className="space-y-4">
-              <NavLink to="/dashboard" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block text-gray-700 hover:text-blue-600"}>Dashboard</NavLink>
-              <NavLink to="/forecast" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block text-gray-700 hover:text-blue-600"}>Forecast</NavLink>
-              <NavLink to="/alerts" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block text-gray-700 hover:text-blue-600"}>Alerts</NavLink>
-              <NavLink to="/settings" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block text-gray-700 hover:text-blue-600"}>Settings</NavLink>
-              <NavLink to="/profile" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block text-gray-700 hover:text-blue-600"}>Profile</NavLink>
-              <NavLink to="/login" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block text-gray-700 hover:text-blue-600"}>Login</NavLink>
-              <NavLink to="/register" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block text-gray-700 hover:text-blue-600"}>Register</NavLink>
-              <NavLink to="/forgot-password" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block text-gray-700 hover:text-blue-600"}>Forgot Password</NavLink>
+              <NavLink to="/dashboard" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block hover:text-blue-600"}>Dashboard</NavLink>
+              <NavLink to="/forecast" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block hover:text-blue-600"}>Forecast</NavLink>
+              <NavLink to="/alerts" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block hover:text-blue-600"}>Alerts</NavLink>
+              <NavLink to="/settings" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block hover:text-blue-600"}>Settings</NavLink>
+              <NavLink to="/profile" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block hover:text-blue-600"}>Profile</NavLink>
+              <NavLink to="/login" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block hover:text-blue-600"}>Login</NavLink>
+              <NavLink to="/register" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block hover:text-blue-600"}>Register</NavLink>
+              <NavLink to="/forgot-password" className={({ isActive }) => isActive ? "block text-blue-600 font-bold" : "block hover:text-blue-600"}>Forgot Password</NavLink>
             </nav>
           </aside>
         )}
@@ -80,13 +83,13 @@ function App() {
             <Route path="/reset-password/:token" element={<ResetPassword />} />
 
             {/* Protected routes */}
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/forecast" element={<ProtectedRoute><Forecast /></ProtectedRoute>} />
-            <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ProtectedRoute>} />
+            <Route path="/forecast" element={<ProtectedRoute><Forecast isDarkMode={isDarkMode} /></ProtectedRoute>} />
+            <Route path="/alerts" element={<ProtectedRoute><Alerts isDarkMode={isDarkMode} /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><Settings isDarkMode={isDarkMode} /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><Profile isDarkMode={isDarkMode} /></ProtectedRoute>} />
 
-            {/* ✅ Redirect root path */}
+            {/* Redirect root path */}
             <Route path="/" element={token ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
           </Routes>
         </main>
