@@ -43,48 +43,79 @@ function Forecast() {
   const [showModal, setShowModal] = useState(false);
   const [horizon, setHorizon] = useState(12);
   const [currency, setCurrency] = useState("USD");
+  const [forecastData, setForecastData] = useState({}); // ✅ new state
 
   useEffect(() => {
-  // ✅ Restore saved horizon from localStorage
-  const savedHorizon = localStorage.getItem("horizon");
-  if (savedHorizon) setHorizon(Number(savedHorizon));
+    const savedHorizon = localStorage.getItem("horizon");
+    if (savedHorizon) setHorizon(Number(savedHorizon));
 
-  const token = localStorage.getItem("token");
-  if (!token) {
-    window.location.href = "/login";
-    return;
-  }
+    const token = localStorage.getItem("token");
+    if (!token) {
+      window.location.href = "/login";
+      return;
+    }
 
-  // ✅ Fetch entries
-  fetch(`${API_BASE_URL}/entries`, {
-    headers: { Authorization: "Bearer " + token },
-  })
-    .then((res) => res.json())
-    .then((data) => {
-      if (Array.isArray(data)) {
-        setTransactions(data);
-      }
+    fetch(`${API_BASE_URL}/entries`, {
+      headers: { Authorization: "Bearer " + token },
     })
-    .catch((err) => console.error("Error fetching entries:", err));
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setTransactions(data);
+        }
+      })
+      .catch((err) => console.error("Error fetching entries:", err));
 
-  // ✅ Fetch settings for currency + horizon
-  fetch(`${API_BASE_URL}/settings`, {
-    headers: { Authorization: "Bearer " + token },
-  })
-    .then((res) => res.json())
-    .then((data) => {
-      setCurrency(data.currency || "USD");
-      if (data.horizon) setHorizon(data.horizon);
+    fetch(`${API_BASE_URL}/settings`, {
+      headers: { Authorization: "Bearer " + token },
     })
-    .catch((err) => console.error("Error fetching settings:", err));
+      .then((res) => res.json())
+      .then((data) => {
+        setCurrency(data.currency || "USD");
+        if (data.horizon) setHorizon(data.horizon);
+      })
+      .catch((err) => console.error("Error fetching settings:", err));
 
-  // ✅ Read ?tab= query parameter from URL
-  const params = new URLSearchParams(window.location.search);
-  const tabParam = params.get("tab");
-  if (tabParam) {
-    setActiveTab(tabParam);
-  }
-}, []); // ✅ empty dependency array, no ESLint warning
+    fetch(`${API_BASE_URL}/forecast?horizon=${horizon}`, {
+      headers: { Authorization: "Bearer " + token },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setForecastData(data);
+      })
+      .catch((err) => console.error("Error fetching forecast:", err));
+
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get("tab");
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [horizon]); // ✅ re-fetch forecast when horizon changes
+
+  // ⬇️ All calculations stay inside the function
+  const totalRevenue = transactions
+    .filter(t => t.type && t.type.toLowerCase() === "income")
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+
+  const totalExpenses = transactions
+    .filter(t => t.type && t.type.toLowerCase() === "expense")
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+
+  const netProfit = totalRevenue - totalExpenses;
+  const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+
+  // … keep scenarios, projections, cumulativeCashflow, exportCSV here …
+
+  // ⬇️ Only one return at the end
+  return (
+    <div className="bg-gray-100 min-h-screen p-6 text-base md:text-lg font-bold">
+      <h1 className="text-2xl font-extrabold mb-6 text-gray-800">AI-Powered Forecast</h1>
+      {/* KPI cards, Cashflow Insights, Summary, Modal, Tabs, Charts */}
+    </div>
+  );
+} // ✅ close the function only once here
+
+
 
   // Totals
 const totalRevenue = transactions
@@ -124,215 +155,228 @@ const expenseChange = lastMonthExpenses > 0
   : 0;
 
 
-  // Scenario datasets (still placeholders, but can be replaced with backend data later)
-  const scenarios = {
-    Optimistic: { revenueChange: 10, expenseChange: -5 },
-    Realistic: { revenueChange: 5, expenseChange: 0 },
-    Pessimistic: { revenueChange: 2, expenseChange: 5 },
-  };
+// Scenario datasets (still placeholders, but can be replaced with backend data later)
+const scenarios = {
+  Optimistic: { revenueChange: 10, expenseChange: -5 },
+  Realistic: { revenueChange: 5, expenseChange: 0 },
+  Pessimistic: { revenueChange: 2, expenseChange: 5 },
+};
 
-  const scenario = scenarios[activeScenario];
+const scenario = scenarios[activeScenario];
 
-  // Adjusted values
-  const adjustedRevenue = totalRevenue * (1 + scenario.revenueChange / 100);
-  const adjustedExpenses = totalExpenses * (1 + scenario.expenseChange / 100);
-  const adjustedProfit = adjustedRevenue - adjustedExpenses;
-  const adjustedMargin = adjustedRevenue > 0 ? (adjustedProfit / adjustedRevenue) * 100 : 0;
+// Adjusted values
+const adjustedRevenue = totalRevenue * (1 + scenario.revenueChange / 100);
+const adjustedExpenses = totalExpenses * (1 + scenario.expenseChange / 100);
+const adjustedProfit = adjustedRevenue - adjustedExpenses;
+const adjustedMargin = adjustedRevenue > 0 ? (adjustedProfit / adjustedRevenue) * 100 : 0;
 
-  // Multi‑month projections (dynamic horizon)
-  const monthsAhead = Array.from({ length: horizon }, (_, i) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + i + 1);
-    return d.toLocaleString("default", { month: "short", year: "numeric" });
-  });
+// Multi‑month projections (dynamic horizon)
+const monthsAhead = Array.from({ length: horizon }, (_, i) => {
+  const d = new Date();
+  d.setMonth(d.getMonth() + i + 1);
+  return d.toLocaleString("default", { month: "short", year: "numeric" });
+});
 
-  const projectedRevenue = monthsAhead.map((_, i) =>
-    adjustedRevenue * Math.pow(1 + scenario.revenueChange / 100, i + 1)
-  );
-  const projectedExpenses = monthsAhead.map((_, i) =>
-    adjustedExpenses * Math.pow(1 + scenario.expenseChange / 100, i + 1)
-  );
-  const projectedProfit = projectedRevenue.map((rev, i) => rev - projectedExpenses[i]);
-  const projectedMargin = projectedRevenue.map((rev, i) =>
-    rev > 0 ? ((rev - projectedExpenses[i]) / rev) * 100 : 0
-  );
+const projectedRevenue = monthsAhead.map((_, i) =>
+  adjustedRevenue * Math.pow(1 + scenario.revenueChange / 100, i + 1)
+);
+const projectedExpenses = monthsAhead.map((_, i) =>
+  adjustedExpenses * Math.pow(1 + scenario.expenseChange / 100, i + 1)
+);
+const projectedProfit = projectedRevenue.map((rev, i) => rev - projectedExpenses[i]);
+const projectedMargin = projectedRevenue.map((rev, i) =>
+  rev > 0 ? ((rev - projectedExpenses[i]) / rev) * 100 : 0
+);
 
-  // Cumulative cashflow
-  const startingReserves = 5000;
-  const cumulativeCashflow = projectedProfit.reduce((acc, profit, i) => {
-    const prev = i === 0 ? startingReserves : acc[i - 1];
-    acc.push(prev + profit);
-    return acc;
-  }, []);
+// Cumulative cashflow
+const startingReserves = 5000;
+const cumulativeCashflow = projectedProfit.reduce((acc, profit, i) => {
+  const prev = i === 0 ? startingReserves : acc[i - 1];
+  acc.push(prev + profit);
+  return acc;
+}, []);
+
 
   // Export CSV
-  const exportCSV = () => {
-    const rows = [["Month","Revenue","Expenses","Profit","Margin"]];
-    monthsAhead.forEach((m, i) => {
-      rows.push([m, projectedRevenue[i], projectedExpenses[i], projectedProfit[i], projectedMargin[i]]);
-    });
-    const csvContent = "data:text/csv;charset=utf-8," + rows.map(r => r.join(",")).join("\n");
-    const link = document.createElement("a");
-    link.href = encodeURI(csvContent);
-    link.download = "forecast.csv";
-    link.click();
-  };
+const exportCSV = () => {
+  const rows = [["Month","Revenue","Expenses","Profit","Margin"]];
+  monthsAhead.forEach((m, i) => {
+    rows.push([m, projectedRevenue[i], projectedExpenses[i], projectedProfit[i], projectedMargin[i]]);
+  });
+  const csvContent = "data:text/csv;charset=utf-8," + rows.map(r => r.join(",")).join("\n");
+  const link = document.createElement("a");
+  link.href = encodeURI(csvContent);
+  link.download = "forecast.csv";
+  link.click();
 
-  return (
-    <div className="bg-gray-100 min-h-screen p-6 text-base md:text-lg font-bold">
-      <h1 className="text-2xl font-extrabold mb-6 text-gray-800">AI-Powered Forecast</h1>
+return (
+  <div className="bg-gray-100 min-h-screen p-6 text-base md:text-lg font-bold">
+    <h1 className="text-2xl font-extrabold mb-6 text-gray-800">AI-Powered Forecast</h1>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-        {/* Revenue */}
-        <div className="bg-green-100 p-4 rounded-lg shadow-md flex flex-col items-center">
-          <span className="text-2xl">💰</span>
-          <h2 className="text-sm font-bold text-gray-600">Revenue</h2>
-          <p className="text-3xl font-extrabold text-green-700">{formatAmount(totalRevenue, currency)}</p>
-        </div>
-        {/* Expenses */}
-        <div className="bg-red-100 p-4 rounded-lg shadow-md flex flex-col items-center">
-          <span className="text-2xl">📉</span>
-          <h2 className="text-sm font-bold text-gray-600">Expenses</h2>
-          <p className="text-3xl font-extrabold text-red-700">{formatAmount(totalExpenses, currency)}</p>
-        </div>
-        {/* Net Profit */}
-        <div className="bg-blue-100 p-4 rounded-lg shadow-md flex flex-col items-center">
-          <span className="text-2xl">📈</span>
-          <h2 className="text-sm font-bold text-gray-600">Net Profit</h2>
-          <p className="text-3xl font-extrabold text-blue-700">{formatAmount(netProfit, currency)}</p>
-        </div>
-        {/* Margin */}
-        <div className="bg-purple-100 p-4 rounded-lg shadow-md flex flex-col items-center">
-          <span className="text-2xl">📊</span>
-          <h2 className="text-sm font-bold text-gray-600">Margin</h2>
-          <p className="text-3xl font-extrabold text-purple-700">{profitMargin.toFixed(2)}%</p>
-        </div>
+    {/* KPI Cards */}
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+      {/* Revenue */}
+      <div className="bg-green-100 p-4 rounded-lg shadow-md flex flex-col items-center">
+        <span className="text-2xl">💰</span>
+        <h2 className="text-sm font-bold text-gray-600">Revenue</h2>
+        <p className="text-3xl font-extrabold text-green-700">{formatAmount(totalRevenue, currency)}</p>
       </div>
-
-            {/* Cashflow Insights */}
-      <div className={`p-6 rounded-lg shadow-md mb-6 ${netProfit < 2000 ? "bg-red-100" : "bg-teal-50"}`}>
-        <h2 className="text-lg font-bold mb-2 text-gray-800">📊 Cashflow Insights</h2>
-        <p className="text-gray-700">
-          📊 Expenses changed by {expenseChange.toFixed(1)}% compared to last month.
-        </p>
-        <p className="text-gray-700">
-          🔮 Forecast: Cashflow looks {projectedProfit.every(p => p > 0) ? "stable" : "unstable"} for the next {horizon} months.
-        </p>
-        <p className="text-gray-700">
-          💡 Suggested Action: {netProfit < 0 ? "Consider renegotiating supplier contracts or cutting non‑essential costs." : "Explore growth investments to boost revenue."}
-        </p>
-        <p className="text-gray-700">
-          📈 Net Profit:{" "}
-          <span className="font-extrabold">{formatAmount(netProfit, currency)}</span> (Margin:{" "}
-          {profitMargin.toFixed(2)}%)
-        </p>
+      {/* Expenses */}
+      <div className="bg-red-100 p-4 rounded-lg shadow-md flex flex-col items-center">
+        <span className="text-2xl">📉</span>
+        <h2 className="text-sm font-bold text-gray-600">Expenses</h2>
+        <p className="text-3xl font-extrabold text-red-700">{formatAmount(totalExpenses, currency)}</p>
       </div>
-
-      {/* Scenario Compare Toggle */}
-      <div className="flex space-x-4 mb-6 font-bold">
-        {["Optimistic", "Realistic", "Pessimistic"].map((s) => (
-          <button
-            key={s}
-            onClick={() => setScenario(s)}
-            className={`px-4 py-2 rounded-lg font-bold ${
-              activeScenario === s ? "bg-teal-500 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-            }`}
-          >
-            {s}
-          </button>
-        ))}
+      {/* Net Profit */}
+      <div className="bg-blue-100 p-4 rounded-lg shadow-md flex flex-col items-center">
+        <span className="text-2xl">📈</span>
+        <h2 className="text-sm font-bold text-gray-600">Net Profit</h2>
+        <p className="text-3xl font-extrabold text-blue-700">{formatAmount(netProfit, currency)}</p>
       </div>
-
-      {/* Forecast Horizon Dropdown */}
-<div className="mb-6 flex items-center space-x-4 font-bold">
-  <div>
-    <label className="block text-sm font-bold text-gray-700">Forecast Horizon</label>
-    <select
-      value={horizon}
-      onChange={(e) => {
-        const val = Number(e.target.value);
-        setHorizon(val);
-        localStorage.setItem("horizon", val); // ✅ save selection
-      }}
-      className="border p-2 rounded w-40 font-bold"
-    >
-      <option value={6}>6 months</option>
-      <option value={12}>12 months</option>
-      <option value={24}>24 months</option>
-    </select>
+      {/* Margin */}
+      <div className="bg-purple-100 p-4 rounded-lg shadow-md flex flex-col items-center">
+        <span className="text-2xl">📊</span>
+        <h2 className="text-sm font-bold text-gray-600">Margin</h2>
+        <p className="text-3xl font-extrabold text-purple-700">{profitMargin.toFixed(2)}%</p>
+      </div>
+    </div>
   </div>
-  <button
-    onClick={exportCSV}
-    className="bg-teal-500 text-white px-4 py-2 rounded hover:bg-teal-600 font-bold"
-  >
-    Export CSV
-  </button>
-</div>
+);
+
+    {/* Cashflow Insights */}
+    <div className={`p-6 rounded-lg shadow-md mb-6 ${netProfit < 2000 ? "bg-red-100" : "bg-teal-50"}`}>
+      <h2 className="text-lg font-bold mb-2 text-gray-800">📊 Cashflow Insights</h2>
+      <p className="text-gray-700">{forecastData.forecast}</p>
+      <p className="text-gray-700">{forecastData.summary}</p>
+      <p className="text-gray-700">Why: {forecastData.why}</p>
+      {forecastData.actions && (
+        <ul className="text-sm text-gray-700 mt-2">
+          {forecastData.actions.map((step, i) => (
+            <li key={i}>👉 {step}</li>
+          ))}
+        </ul>
+      )}
+      <p className="text-gray-700 mt-2">{forecastData.suggestion}</p>
+      <div className="mt-3">
+        <a
+          href={`https://wa.me/?text=${encodeURIComponent(forecastData.whatsapp_text)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 font-bold"
+        >
+          Send to WhatsApp
+        </a>
+      </div>
+    </div>
+
+    {/* Scenario Compare Toggle */}
+    <div className="flex space-x-4 mb-6 font-bold">
+      {["Optimistic", "Realistic", "Pessimistic"].map((s) => (
+        <button
+          key={s}
+          onClick={() => setScenario(s)}
+          className={`px-4 py-2 rounded-lg font-bold ${
+            activeScenario === s ? "bg-teal-500 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+          }`}
+        >
+          {s}
+        </button>
+      ))}
+    </div>
+
+    {/* Forecast Horizon Dropdown */}
+    <div className="mb-6 flex items-center space-x-4 font-bold">
+      <div>
+        <label className="block text-sm font-bold text-gray-700">Forecast Horizon</label>
+        <select
+          value={horizon}
+          onChange={(e) => {
+            const val = Number(e.target.value);
+            setHorizon(val);
+            localStorage.setItem("horizon", val); // ✅ save selection
+          }}
+          className="border p-2 rounded w-40 font-bold"
+        >
+          <option value={6}>6 months</option>
+          <option value={12}>12 months</option>
+          <option value={24}>24 months</option>
+        </select>
+      </div>
+      <button
+        onClick={exportCSV}
+        className="bg-teal-500 text-white px-4 py-2 rounded hover:bg-teal-600 font-bold"
+      >
+        Export CSV
+      </button>
+    </div>
 
       {/* Forecast Summary Card */}
-      <div className="bg-gradient-to-r from-teal-500 to-teal-300 text-white p-6 rounded-lg shadow-md mb-8 font-bold">
-        <h2 className="text-xl font-bold mb-2">Forecast Summary ({activeScenario})</h2>
-        <p className="text-lg">
-          {netProfit < 2000
-            ? "⚠️ Cash reserves may dip below safe levels. Consider reducing expenses or boosting revenue."
-            : "✅ Cashflow looks stable. Current reserves are sufficient to sustain operations."}
-        </p>
-        <p className="mt-2">
-          Current Margin: <span className="font-extrabold">{profitMargin.toFixed(2)}%</span>
-        </p>
-        <p>
-          Projected Profit in {horizon} months:{" "}
-          <span className="font-extrabold">{formatAmount(projectedProfit[horizon-1], currency)}</span>
-        </p>
-        <p>
-          Projected Margin in {horizon} months:{" "}
-          <span className="font-extrabold">{projectedMargin[horizon-1].toFixed(2)}%</span>{" "}
-          {projectedMargin[horizon-1] > profitMargin ? "⬆️" : projectedMargin[horizon-1] < profitMargin ? "⬇️" : "➡️"}
-        </p>
-        <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg font-extrabold mt-2 inline-block">
-          Adjusted Margin: {adjustedMargin.toFixed(2)}%{" "}
-          {adjustedMargin > profitMargin ? "⬆️" : adjustedMargin < profitMargin ? "⬇️" : "➡️"}
-        </span>
-        <div className="mt-4">
-          <button
-            onClick={() => setShowModal(true)}
-            className="bg-white text-teal-600 font-bold px-4 py-2 rounded-lg shadow hover:bg-gray-100"
-          >
-            {netProfit < 2000 ? "Cut Costs by 10%" : "Invest in Growth"}
-          </button>
-        </div>
-      </div>
+<div className="bg-gradient-to-r from-teal-500 to-teal-300 text-white p-6 rounded-lg shadow-md mb-8 font-bold">
+  <h2 className="text-xl font-bold mb-2">Forecast Summary ({activeScenario})</h2>
+  <p className="text-lg">{forecastData.forecast}</p>
+  <p className="mt-2">{forecastData.summary}</p>
+  <p className="mt-2">Why: {forecastData.why}</p>
+  {forecastData.actions && (
+    <ul className="mt-2 text-sm">
+      {forecastData.actions.map((step, i) => (
+        <li key={i}>👉 {step}</li>
+      ))}
+    </ul>
+  )}
+  <div className="mt-4 flex space-x-4">
+    <button
+      onClick={() => setShowModal(true)}
+      className="bg-white text-teal-600 font-bold px-4 py-2 rounded-lg shadow hover:bg-gray-100"
+    >
+      {forecastData.suggestion}
+    </button>
+    <a
+      href={`https://wa.me/?text=${encodeURIComponent(forecastData.whatsapp_text)}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 font-bold"
+    >
+      Send to WhatsApp
+    </a>
+  </div>
+</div>
 
-      {/* Modal Popup */}
-      {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md font-bold">
-            <h3 className="text-lg font-bold mb-4 text-gray-800">Recommended Action</h3>
-            <p className="text-gray-700 mb-4">
-              {netProfit < 2000
-                ? "Reducing costs by 10% saves ~" + formatAmount(totalExpenses * 0.1, currency) + "/month."
-                : "Investing in growth could raise revenue by ~15%, boosting profit margins and long-term stability."}
-            </p>
-            <div className="flex justify-between">
-              <button
-                onClick={() => setShowModal(false)}
-                className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400 font-bold"
-              >
-                Close
-              </button>
-              <a
-                href="/alerts"
-                className="bg-teal-500 text-white px-4 py-2 rounded hover:bg-teal-600 font-bold"
-              >
-                Take Action →
-              </a>
-            </div>
-          </div>
-        </div>
+{/* Modal Popup */}
+{showModal && (
+  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+    <div className="bg-white p-6 rounded-lg shadow-lg max-w-md font-bold">
+      <h3 className="text-lg font-bold mb-4 text-gray-800">Forecast Details</h3>
+      <p className="text-gray-700 mb-4">{forecastData.forecast}</p>
+      <p className="text-gray-600 mb-4">Why: {forecastData.why}</p>
+      <p className="text-gray-600 mb-4">Suggested Actions:</p>
+      {forecastData.actions && forecastData.actions.length > 0 ? (
+        <ul className="text-sm text-gray-700 mb-4">
+          {forecastData.actions.map((step, i) => (
+            <li key={i}>👉 {step}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-gray-500">ℹ️ No suggested actions available</p>
       )}
+      <div className="flex justify-between">
+        <button
+          onClick={() => setShowModal(false)}
+          className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400 font-bold"
+        >
+          Close
+        </button>
+        <a
+          href="/alerts"
+          className="bg-teal-500 text-white px-4 py-2 rounded hover:bg-teal-600 font-bold"
+        >
+          Take Action →
+        </a>
+      </div>
+    </div>
+  </div>
+)}
 
-      {/* Tabs and Charts */}
+{/* Tabs and Charts */}
 <div className="bg-white p-6 rounded-lg shadow-md font-bold">
   <h2 className="text-lg font-bold text-gray-800 mb-4">Forecast Visuals</h2>
   <div className="flex space-x-4 mb-6 flex-wrap font-bold">
@@ -350,24 +394,25 @@ const expenseChange = lastMonthExpenses > 0
   </div>
 
   {/* Trend Chart */}
-{activeTab === "trend" && (
-  <div>
-    <Line
-      data={{
-        labels: monthsAhead,
-        datasets: [
-          { label: "Revenue", data: projectedRevenue, borderColor: "#10B981", backgroundColor: "#A7F3D0", fill: true, tension: 0.4 },
-          { label: "Expenses", data: projectedExpenses, borderColor: "#EF4444", backgroundColor: "#FCA5A5", fill: true, tension: 0.4 },
-          { label: "Profit", data: projectedProfit, borderColor: "#3B82F6", backgroundColor: "#93C5FD", fill: true, tension: 0.4 },
-        ],
-      }}
-    />
-    <p className="mt-3 text-sm text-gray-700 font-bold">
-      📈 By {monthsAhead[horizon-1]}, revenue is projected at {formatAmount(projectedRevenue[horizon-1], currency)}, 
-      expenses at {formatAmount(projectedExpenses[horizon-1], currency)}, and profit at {formatAmount(projectedProfit[horizon-1], currency)}.
-    </p>
-  </div>
-)}
+  {activeTab === "trend" && (
+    <div>
+      <Line
+        data={{
+          labels: monthsAhead,
+          datasets: [
+            { label: "Revenue", data: projectedRevenue, borderColor: "#10B981", backgroundColor: "#A7F3D0", fill: true, tension: 0.4 },
+            { label: "Expenses", data: projectedExpenses, borderColor: "#EF4444", backgroundColor: "#FCA5A5", fill: true, tension: 0.4 },
+            { label: "Profit", data: projectedProfit, borderColor: "#3B82F6", backgroundColor: "#93C5FD", fill: true, tension: 0.4 },
+          ],
+        }}
+      />
+      <p className="mt-3 text-sm text-gray-700 font-bold">
+        📈 By {monthsAhead[horizon-1]}, revenue is projected at {formatAmount(projectedRevenue[horizon-1], currency)}, 
+        expenses at {formatAmount(projectedExpenses[horizon-1], currency)}, and profit at {formatAmount(projectedProfit[horizon-1], currency)}.
+      </p>
+    </div>
+  )}
+</div>
 
 {/* Proportion Chart */}
 {activeTab === "proportion" && (
@@ -389,7 +434,7 @@ const expenseChange = lastMonthExpenses > 0
   </div>
 )}
 
-  {/* Liquidity Chart */}
+{/* Liquidity Chart */}
 {activeTab === "liquidity" && (
   <div>
     <Line
@@ -601,47 +646,6 @@ const expenseChange = lastMonthExpenses > 0
       }}
     />
     <p className="mt-3 text-sm text-gray-700 font-bold">
-      🌍 Latest month shows Marketing spend at {formatAmount(transactions.filter(t => t.category === "Marketing").map(t => Number(t.amount)).slice(-1)[0] || 0, currency)}, 
-      Operations at {formatAmount(transactions.filter(t => t.category === "Operations").map(t => Number(t.amount)).slice(-1)[0] || 0, currency)}, 
-      and Miscellaneous at {formatAmount(transactions.filter(t => t.category === "Miscellaneous").map(t => Number(t.amount)).slice(-1)[0] || 0, currency)}.
-    </p>
-  </div>
-)}
-
-
-        {/* Heatmap Tab */}
-{activeTab === "heatmap" && (
-  <div>
-    <Bar
-      data={{
-        labels: monthsAhead,
-        datasets: [
-          {
-            label: "Marketing",
-            data: transactions.filter(t => t.category === "Marketing").map(t => Number(t.amount)),
-            backgroundColor: "#F59E0B",
-          },
-          {
-            label: "Operations",
-            data: transactions.filter(t => t.category === "Operations").map(t => Number(t.amount)),
-            backgroundColor: "#3B82F6",
-          },
-          {
-            label: "Miscellaneous",
-            data: transactions.filter(t => t.category === "Miscellaneous").map(t => Number(t.amount)),
-            backgroundColor: "#10B981",
-          },
-        ],
-      }}
-      options={{
-        responsive: true,
-        scales: {
-          x: { stacked: true },
-          y: { stacked: true, beginAtZero: true },
-        },
-      }}
-    />
-    <p className="mt-3 text-sm text-gray-700 font-bold">
       🌍 In {monthsAhead[horizon-1]}, Marketing spend is 
       {formatAmount(transactions.filter(t => t.category === "Marketing").map(t => Number(t.amount)).slice(-1)[0] || 0, currency)}, 
       Operations spend is 
@@ -650,10 +654,11 @@ const expenseChange = lastMonthExpenses > 0
       {formatAmount(transactions.filter(t => t.category === "Miscellaneous").map(t => Number(t.amount)).slice(-1)[0] || 0, currency)}.
     </p>
   </div>
-)}
-</div>
-</div>
+)} {/* closes Heatmap tab block */}
+
+</div> {/* closes the Forecast Visuals wrapper */}
+</div>   {/* closes the outer container */}
 );
-}
+} // ✅ close the Forecast function only once here
 
 export default Forecast;

@@ -270,9 +270,11 @@ return (
         <p className="text-gray-700 font-bold">{alert.message}</p>
 
         {/* Why explanation */}
-        <p className="text-gray-500 text-sm mt-1 font-bold">
-          {alert.why || "ℹ️ No explanation available"}
-        </p>
+        {alert.why && alert.why.trim() !== "" ? (
+          <p className="text-gray-500 text-sm mt-1 font-bold">{alert.why}</p>
+        ) : (
+          <p className="text-gray-500 text-sm mt-1 font-bold">ℹ️ Explanation not provided</p>
+        )}
 
         {/* Suggested Actions */}
         {alert.actions && alert.actions.length > 0 && (
