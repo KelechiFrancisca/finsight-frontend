@@ -1,3 +1,29 @@
+/* FINAL FIX FOR DOUBLE CALENDAR */
+.date-wrapper {
+  position: relative;
+  display: inline-block;
+}
+.date-wrapper input[type="date"]::-webkit-calendar-picker-indicator {
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+  height: 100%;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 100%;
+  opacity: 0;
+}
+.date-wrapper::after {
+  content: "📅";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
 /* Default React styles */
 body {
   margin: 0;
