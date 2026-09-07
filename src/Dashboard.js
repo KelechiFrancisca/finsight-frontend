@@ -319,6 +319,28 @@ function Dashboard({ isDarkMode, setIsDarkMode }) {
     return parts.map((part, i) => part.toLowerCase() === searchTerm.toLowerCase() ? <span key={i} className="bg-yellow-300 text-black px-1 rounded">{part}</span> : part);
   };
 
+  // ===== RUNWAY CALCULATION FOR ORANGE CARD ONLY =====
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  
+  const calcTotalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  const calcTotalExpenses = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  const calcCurrentCash = calcTotalIncome - calcTotalExpenses;
+
+  const calcRecentExpenses = transactions.filter(t => t.type === 'expense' && new Date(t.date) >= thirtyDaysAgo);
+  const calcAvgMonthlyBurn = calcRecentExpenses.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+  let calcRunway = 'N/A';
+  if (calcAvgMonthlyBurn > 0 && calcCurrentCash > 0) {
+    const months = calcCurrentCash / calcAvgMonthlyBurn;
+    calcRunway = `${months.toFixed(1)} M`;
+  } else if (calcAvgMonthlyBurn === 0 && calcCurrentCash > 0) {
+    calcRunway = '∞';
+  } else if (calcCurrentCash <= 0) {
+    calcRunway = '0 M';
+  }
+  // ===== END RUNWAY CALCULATION =====
+  
   return (
     <>
       <div id="dashboard-to-pdf" className={isDarkMode ? "bg-gray-900 text-white min-h-screen p-6" : "bg-gray-100 text-gray-900 min-h-screen p-6"}>
@@ -343,7 +365,16 @@ function Dashboard({ isDarkMode, setIsDarkMode }) {
           <div onClick={() => filterByType('expense')} className="cursor-pointer bg-gradient-to-br from-red-500 to-rose-600 p-6 rounded-xl shadow-xl text-white hover:scale-105 transition"><div className="flex justify-between items-center"><h3 className="text-xl font-bold">Total Expenses</h3><FaArrowDown className="text-white text-2xl" /></div><p className="text-3xl font-extrabold mt-2">{formatAmount(totalExpenses, currency)}</p></div>
           <div onClick={() => filterByType('all')} className="cursor-pointer bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-xl shadow-xl text-white hover:scale-105 transition"><div className="flex justify-between items-center"><h3 className="text-xl font-bold">Net Profit</h3><FaBalanceScale className="text-white text-2xl" /></div><p className="text-3xl font-extrabold mt-2">{formatAmount(netProfit, currency)}</p></div>
           <div className="bg-gradient-to-br from-purple-500 to-fuchsia-600 p-6 rounded-xl shadow-xl text-white"><div className="flex justify-between items-center"><h3 className="text-xl font-bold">Profit Margin</h3><FaPercentage className="text-white text-2xl" /></div><p className="text-3xl font-extrabold mt-2">{profitMargin.toFixed(2)}%</p></div>
-          <div className="bg-gradient-to-br from-orange-500 to-amber-600 p-6 rounded-xl shadow-xl text-white"><div className="flex justify-between items-center"><h3 className="text-xl font-bold">Runway</h3><FaBalanceScale className="text-white text-2xl" /></div><p className="text-3xl font-extrabold mt-2">{Math.floor(netProfit / (totalExpenses / (Object.keys(monthlyData).length || 1) || 1))} M</p></div>
+          
+          {/* ===== ONLY THIS CARD CHANGED ===== */}
+          <div className="bg-gradient-to-br from-orange-500 to-amber-600 p-6 rounded-xl shadow-xl text-white">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-bold">Runway</h3>
+              <FaBalanceScale className="text-white text-2xl" />
+            </div>
+            <p className="text-3xl font-extrabold mt-2">{calcRunway}</p>
+            <p className="text-xs mt-1 opacity-80">Based on last 30 days</p>
+          </div>
         </div>
 
         <div className={isDarkMode ? "bg-gray-800 p-6 rounded-xl shadow-lg mb-6 text-white border-l-4 border-cyan-400" : "bg-white p-6 rounded-xl shadow-lg mb-6 text-gray-900 border-l-4 border-cyan-500"}><h2 className="text-lg font-bold mb-3">📊 Cashflow Insights</h2>{(() => { const sortedMonths = Object.keys(monthlyData).sort(); const lastM = sortedMonths[sortedMonths.length - 1]; const prevM = sortedMonths[sortedMonths.length - 2]; const lastExp = monthlyData[lastM]?.expense || 0; const prevExp = monthlyData[prevM]?.expense || 0; let changeText = ""; if (prevExp > 0) { const pct = ((lastExp - prevExp) / prevExp) * 100; changeText = `(${pct >= 0 ? 'Up' : 'Down'} ${Math.abs(pct).toFixed(1)}% vs last month)`; } else if (lastExp > 0) { changeText = `(First month with expenses)`; } const cashflowStatus = netProfit < 0 ? "unstable" : "stable"; const suggestedAction = totalExpenses > totalRevenue ? "Consider renegotiating supplier contracts or cutting non‑essential costs." : "Explore growth investments to boost revenue."; return (<div className="space-y-2"><p>📊 Expenses this month: <span className="font-bold">{formatAmount(lastExp, currency)}</span> {changeText}</p><p>📊 Total Expenses All-Time: <span className="font-bold">{formatAmount(totalExpenses, currency)}</span></p><p>🔮 Forecast: Cashflow looks <span className="font-bold">{cashflowStatus}</span> based on all-time data.</p><p>💡 Suggested Action: {suggestedAction}</p><p>📈 Net Profit: <span className="font-bold">{formatAmount(netProfit, currency)}</span> (Margin: {profitMargin.toFixed(2)}%)</p></div>) })()}</div>
