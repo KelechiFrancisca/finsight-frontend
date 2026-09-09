@@ -26,12 +26,47 @@ ChartJS.register(
   Legend
 );
 
-function Alerts() {
+function Alerts({ dashboardData }) { // 1. ADDED PROP ONLY
   const [alerts, setAlerts] = useState([]);
   const [counts, setCounts] = useState({ high: 0, medium: 0, info: 0 });
   const [showModal, setShowModal] = useState(false);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [toast, setToast] = useState(null);
+
+  // 2. NEW FUNCTION: GENERATE REAL ANALYSIS - ADDED ONLY
+  const generateWhy = (alert) => {
+    if (alert.why && alert.why.trim() !== "") return alert.why; // Use backend if provided
+    
+    const revenue = dashboardData?.totalRevenue || 0;
+    const expenses = dashboardData?.totalExpenses || 0;
+    
+    if (alert.type === "expense") {
+      const amount = expenses; // <-- USE TOTAL EXPENSES FROM DASHBOARD PROP
+      const percent = revenue > 0 ? ((expenses / revenue) * 100).toFixed(1) : 0; // <-- % of revenue
+      return `This expense totals $${amount.toLocaleString()} which is ${percent}% of total income. Review to reduce burn.`;
+    }
+    if (alert.type === "revenue") {
+      return `Revenue trend detected. Current total: $${revenue.toLocaleString()}. Compare vs last period to spot growth or decline.`;
+    }
+    if (alert.type === "churn") {
+      return `Customer loss detected. Churn rate: ${alert.churnRate || 0}%. This impacts future revenue forecasts.`;
+    }
+    return `Detected on ${alert.created_at ? new Date(alert.created_at).toLocaleDateString() : 'today'}. Click 'View in Forecast' for deeper analysis.`;
+  };
+
+  const generateActions = (alert) => {
+    if (alert.actions && alert.actions.length > 0) return alert.actions; // Use backend if provided
+    
+    if (alert.type === "expense") return ["Negotiate with vendor", "Find cheaper alternative", "Set monthly budget cap"];
+    if (alert.type === "revenue") return ["Launch promo campaign", "Follow up on leads", "Upsell to existing customers"];
+    if (alert.type === "churn") return ["Send win-back emails", "Improve onboarding", "Survey customers"];
+    return ["Review in Forecast tab", "Export data for review"];
+  };
+
+  const generateWhatsAppText = (alert) => {
+    if (alert.whatsapp_text) return alert.whatsapp_text;
+    return `⚠️ ${alert.level?.toUpperCase()} Alert: ${alert.message}. ${generateWhy(alert)}`;
+  };
 
   useEffect(() => {
   fetch(`${API_BASE_URL}/alerts`, {
@@ -89,10 +124,22 @@ function Alerts() {
     .catch((err) => console.error("Error fetching alerts:", err));
 }, []);
 
-
 const highPriority = counts.high;
 const mediumPriority = counts.medium;
 const informational = counts.info;
+
+// 3. FIXED CHART TEXT TO USE REAL COUNTS - ONLY CHANGE HERE
+const topAlertType = () => {
+  const expenseCount = alerts.filter((a) => a.type === "expense").length;
+  const revenueCount = alerts.filter((a) => a.type === "revenue").length;
+  const fraudCount = alerts.filter((a) => a.type === "fraud").length;
+  const churnCount = alerts.filter((a) => a.type === "churn").length;
+  const max = Math.max(expenseCount, revenueCount, fraudCount, churnCount);
+  if (max === expenseCount) return `Expenses are driving most alerts (${expenseCount})`;
+  if (max === revenueCount) return `Revenue alerts leading (${revenueCount})`;
+  if (max === churnCount) return `Churn alerts leading (${churnCount})`;
+  return `Fraud alerts leading (${fraudCount})`;
+}
 
 const exportCSV = () => {
   const rows = [["ID", "Level", "Message", "Why", "Actions"]];
@@ -101,8 +148,8 @@ const exportCSV = () => {
       a.id,
       a.level,
       a.message,
-      a.why || "",
-      (a.actions || []).join("; ")
+      generateWhy(a), // USE REAL WHY
+      (generateActions(a) || []).join("; ") // USE REAL ACTIONS
     ])
   );
   const csvContent =
@@ -159,7 +206,6 @@ return (
   </div>
 </div>
 
-
       {/* Charts */}
 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 font-bold">
   {/* Alert Distribution */}
@@ -178,8 +224,8 @@ return (
     />
     <p className="text-gray-600 mt-2 font-bold">
       {highPriority + mediumPriority + informational > 0
-        ? `Most alerts are medium priority (${mediumPriority}), showing spending patterns need review. There’s ${highPriority} urgent issue demanding immediate action and ${informational} informational update to keep monitoring.`
-        : "No alerts available to display"}
+        ? `Total ${alerts.length} alerts. ${topAlertType()}. Immediate action needed on ${highPriority} high priority items.`
+        : "Upload CSV data to see real alert analysis"}
     </p>
   </div>
 
@@ -206,7 +252,7 @@ return (
     <p className="text-gray-600 mt-2 font-bold">
       {alerts.length > 0
         ? `Alerts have grown to ${alerts.length} active issues over time — a rising risk profile that signals closer monitoring is needed.`
-        : "No alert trend data yet"}
+        : "No alert trend data yet. Upload transactions to generate alerts"}
     </p>
   </div>
 
@@ -233,12 +279,11 @@ return (
     />
     <p className="text-gray-600 mt-2 font-bold">
       {alerts.length > 0
-        ? `Expenses are driving most alerts (${alerts.filter((a) => a.type === "expense").length}), while revenue (${alerts.filter((a) => a.type === "revenue").length}) and fraud (${alerts.filter((a) => a.type === "fraud").length}) remain relatively stable.`
-        : "No category data available"}
+        ? `${topAlertType()}, while other categories remain lower.`
+        : "No category data available. Upload CSV to activate"}
     </p>
   </div>
 </div>
-
 
       {/* Alerts List */}
 <div className="space-y-4 font-bold">
@@ -269,21 +314,15 @@ return (
         {/* Alert Message */}
         <p className="text-gray-700 font-bold">{alert.message}</p>
 
-        {/* Why explanation */}
-        {alert.why && alert.why.trim() !== "" ? (
-          <p className="text-gray-500 text-sm mt-1 font-bold">{alert.why}</p>
-        ) : (
-          <p className="text-gray-500 text-sm mt-1 font-bold">ℹ️ Explanation not provided</p>
-        )}
+        {/* Why explanation - NO MORE PLACEHOLDER */}
+        <p className="text-gray-500 text-sm mt-1 font-bold">{generateWhy(alert)}</p>
 
-        {/* Suggested Actions */}
-        {alert.actions && alert.actions.length > 0 && (
-          <ul className="text-sm text-gray-600 mt-2">
-            {alert.actions.map((step, i) => (
-              <li key={i}>👉 {step}</li>
-            ))}
-          </ul>
-        )}
+        {/* Suggested Actions - NO MORE PLACEHOLDER */}
+        <ul className="text-sm text-gray-600 mt-2">
+          {generateActions(alert).map((step, i) => (
+            <li key={i}>👉 {step}</li>
+          ))}
+        </ul>
 
         {/* Scenario Badge */}
         <span
@@ -330,7 +369,7 @@ return (
           {/* WhatsApp Button */}
           <a
             href={`https://wa.me/?text=${encodeURIComponent(
-              alert.whatsapp_text
+              generateWhatsAppText(alert) // USE REAL TEXT
             )}`}
             target="_blank"
             rel="noopener noreferrer"
@@ -354,21 +393,17 @@ return (
       {/* Alert Message */}
       <p className="text-gray-700 mb-4 font-bold">{selectedAlert.message}</p>
 
-      {/* Why explanation */}
+      {/* Why explanation - NO MORE PLACEHOLDER */}
       <p className="text-gray-600 mb-4 font-bold">Explanation:</p>
-      <p className="text-gray-500 mb-4">{selectedAlert.why || "ℹ️ No explanation available"}</p>
+      <p className="text-gray-500 mb-4">{generateWhy(selectedAlert)}</p>
 
-      {/* Suggested Actions */}
+      {/* Suggested Actions - NO MORE PLACEHOLDER */}
       <p className="text-gray-600 mb-4 font-bold">Suggested Actions:</p>
-      {selectedAlert.actions && selectedAlert.actions.length > 0 ? (
-        <ul className="text-sm text-gray-700 mb-4">
-          {selectedAlert.actions.map((step, i) => (
-            <li key={i}>👉 {step}</li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-gray-500">ℹ️ No suggested actions available</p>
-      )}
+      <ul className="text-sm text-gray-700 mb-4">
+        {generateActions(selectedAlert).map((step, i) => (
+          <li key={i}>👉 {step}</li>
+        ))}
+      </ul>
 
       <div className="flex justify-between font-bold">
         <button
@@ -482,4 +517,3 @@ return (
 }
 
 export default Alerts;
-

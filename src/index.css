@@ -1,30 +1,33 @@
-/* FINAL FIX FOR DOUBLE CALENDAR */
+/* ===== NUCLEAR FIX FOR DOUBLE CALENDAR ===== */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="date"]::-webkit-inner-spin-button,
+input[type="date"]::-webkit-clear-button {
+  display: none !important;
+  -webkit-appearance: none;
+}
+
+/* OUR CUSTOM CALENDAR WRAPPER */
 .date-wrapper {
   position: relative;
   display: inline-block;
 }
-.date-wrapper input[type="date"]::-webkit-calendar-picker-indicator {
-  background: transparent;
-  color: transparent;
-  cursor: pointer;
-  height: 100%;
-  left: 0;
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: 100%;
-  opacity: 0;
-}
+
 .date-wrapper::after {
   content: "📅";
   position: absolute;
-  right: 10px;
+  right: 12px;
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
+  font-size: 16px;
+  z-index: 1;
 }
 
-/* Default React styles */
+.date-wrapper input[type="date"] {
+  padding-right: 40px !important;
+}
+
+/* ===== DEFAULT REACT STYLES ===== */
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
@@ -39,7 +42,7 @@ code {
     monospace;
 }
 
-/* Tailwind base layer (if using Tailwind) */
+/* Tailwind base layer */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
