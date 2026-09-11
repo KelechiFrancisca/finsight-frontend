@@ -35,7 +35,7 @@ function formatAmount(amount, currency = "NGN") {
   return `${symbol}${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function Alerts({ dashboardData }) {
+function Alerts({ dashboardData, isDarkMode }) {
   const [alerts, setAlerts] = useState([]);
   const [counts, setCounts] = useState({ high: 0, medium: 0, info: 0 });
   const [totals, setTotals] = useState({});
@@ -46,6 +46,15 @@ function Alerts({ dashboardData }) {
   const [costCutSlider, setCostCutSlider] = useState(10);
   const [emailPreview, setEmailPreview] = useState(null);
   const reportRef = useRef();
+
+  const dark =!!isDarkMode;
+  const pageCls = dark? "bg-transparent text-white" : "bg-transparent text-gray-900";
+  const cardCls = dark
+   ? "bg-gray-800/70 backdrop-blur-xl border border-white/10 text-white"
+    : "bg-white/70 backdrop-blur-xl border border-white/40 text-gray-900";
+  const innerCls = dark? "bg-white/5 border border-white/10" : "bg-gray-100/70 border border-black/5";
+  const mutedTxt = dark? "text-gray-400" : "text-gray-600";
+  const headingTxt = dark? "text-white" : "text-gray-800";
 
   const currency = dashboardData?.currency || totals.currency || "NGN";
   const totalRevenue = dashboardData?.totalRevenue?? totals.total_income?? 0;
@@ -199,43 +208,43 @@ Please review and take action.
   };
 
   return (
-    <div ref={reportRef} className="bg-gradient-to-br from-gray-50 to-teal-50 min-h-screen p-6 text-base md:text-lg font-bold">
-      <h1 className="text-2xl font-extrabold mb-6 text-gray-800">AI-Powered Alerts</h1>
-      <p className="text-gray-600 mb-6 font-bold">Stay informed with intelligent alerts about your business finances.</p>
+    <div ref={reportRef} className={`${pageCls} p-6 text-base md:text-lg font-bold rounded-2xl mb-8`}>
+      <h1 className={`text-2xl font-extrabold mb-6 ${headingTxt}`}>AI-Powered Alerts</h1>
+      <p className={`${mutedTxt} mb-6 font-bold`}>Stay informed with intelligent alerts about your business finances.</p>
 
       {detectAnomalies().length > 0 && (
-        <div className="bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded-xl mb-4">
-          <h3 className="font-extrabold text-indigo-700 mb-2">🔍 AI Anomaly Detection</h3>
-          {detectAnomalies().map((a, i) => <p key={i} className="text-sm text-indigo-600">• {a}</p>)}
+        <div className={`${dark? "bg-indigo-900/40 border-indigo-400" : "bg-indigo-50 border-indigo-500"} border-l-4 p-4 rounded-xl mb-4`}>
+          <h3 className={`font-extrabold mb-2 ${dark? "text-indigo-300" : "text-indigo-700"}`}>🔍 AI Anomaly Detection</h3>
+          {detectAnomalies().map((a, i) => <p key={i} className={`text-sm ${dark? "text-indigo-200" : "text-indigo-600"}`}>• {a}</p>)}
         </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white/70 backdrop-blur-xl p-6 rounded-2xl shadow-xl font-bold">
-          <h2 className="text-lg font-bold text-red-600">High Priority</h2>
+        <div className={`${cardCls} p-6 rounded-2xl shadow-xl font-bold`}>
+          <h2 className="text-lg font-bold text-red-500">High Priority</h2>
           <p className="text-3xl font-extrabold">{highPriority}</p>
-          <p className="text-sm text-gray-500">{highPriority > 0? `⚠️ ${highPriority} urgent issue${highPriority > 1? "s" : ""} demand immediate action` : "✅ No high priority alerts right now"}</p>
+          <p className={`text-sm ${mutedTxt}`}>{highPriority > 0? `⚠️ ${highPriority} urgent issue${highPriority > 1? "s" : ""} demand immediate action` : "✅ No high priority alerts right now"}</p>
         </div>
-        <div className="bg-white/70 backdrop-blur-xl p-6 rounded-2xl shadow-xl font-bold">
-          <h2 className="text-lg font-bold text-yellow-600">Medium Priority</h2>
+        <div className={`${cardCls} p-6 rounded-2xl shadow-xl font-bold`}>
+          <h2 className="text-lg font-bold text-yellow-500">Medium Priority</h2>
           <p className="text-3xl font-extrabold">{mediumPriority}</p>
-          <p className="text-sm text-gray-500">{mediumPriority > 0? `${mediumPriority} alert${mediumPriority > 1? "s" : ""} require monitoring` : "✅ Finances are steady"}</p>
+          <p className={`text-sm ${mutedTxt}`}>{mediumPriority > 0? `${mediumPriority} alert${mediumPriority > 1? "s" : ""} require monitoring` : "✅ Finances are steady"}</p>
         </div>
-        <div className="bg-white/70 backdrop-blur-xl p-6 rounded-2xl shadow-xl font-bold">
-          <h2 className="text-lg font-bold text-blue-600">Informational</h2>
+        <div className={`${cardCls} p-6 rounded-2xl shadow-xl font-bold`}>
+          <h2 className="text-lg font-bold text-blue-500">Informational</h2>
           <p className="text-3xl font-extrabold">{informational}</p>
-          <p className="text-sm text-gray-500">{informational > 0? `${informational} update${informational > 1? "s" : ""} for awareness` : "ℹ️ All systems normal"}</p>
+          <p className={`text-sm ${mutedTxt}`}>{informational > 0? `${informational} update${informational > 1? "s" : ""} for awareness` : "ℹ️ All systems normal"}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 font-bold">
-        <div className="bg-white/70 backdrop-blur-xl p-6 rounded-2xl shadow-xl font-bold">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">Alert Distribution</h2>
+        <div className={`${cardCls} p-6 rounded-2xl shadow-xl font-bold`}>
+          <h2 className={`text-lg font-bold mb-4 ${headingTxt}`}>Alert Distribution</h2>
           <Pie data={{ labels: ["High", "Medium", "Info"], datasets: [{ data: [highPriority, mediumPriority, informational], backgroundColor: ["#EF4444", "#F59E0B", "#3B82F6"] }] }}/>
-          <p className="text-gray-600 mt-2 font-bold">{highPriority + mediumPriority + informational > 0? `Total ${alerts.length} alerts. ${topAlertType()}` : "Upload CSV data to see real alert analysis"}</p>
+          <p className={`${mutedTxt} mt-2 font-bold`}>{highPriority + mediumPriority + informational > 0? `Total ${alerts.length} alerts. ${topAlertType()}` : "Upload CSV data to see real alert analysis"}</p>
         </div>
-        <div className="bg-white/70 backdrop-blur-xl p-6 rounded-2xl shadow-xl font-bold">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">Alerts Trend</h2>
+        <div className={`${cardCls} p-6 rounded-2xl shadow-xl font-bold`}>
+          <h2 className={`text-lg font-bold mb-4 ${headingTxt}`}>Alerts Trend</h2>
           <Line data={{
             labels: alerts.map((a, i) => {
               const d = a.created_at? new Date(a.created_at) : new Date();
@@ -243,10 +252,10 @@ Please review and take action.
             }),
             datasets: [{ label: "Alerts Over Time", data: alerts.map((_, i) => i + 1), borderColor: "#10B981", backgroundColor: "#A7F3D0", fill: true, tension: 0.4 }]
           }}/>
-          <p className="text-gray-600 mt-2 font-bold">{alerts.length > 0? `Alerts have grown to ${alerts.length} active issues` : "No alert trend data yet"}</p>
+          <p className={`${mutedTxt} mt-2 font-bold`}>{alerts.length > 0? `Alerts have grown to ${alerts.length} active issues` : "No alert trend data yet"}</p>
         </div>
-        <div className="bg-white/70 backdrop-blur-xl p-6 rounded-2xl shadow-xl font-bold">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">Alerts by Category</h2>
+        <div className={`${cardCls} p-6 rounded-2xl shadow-xl font-bold`}>
+          <h2 className={`text-lg font-bold mb-4 ${headingTxt}`}>Alerts by Category</h2>
           <Bar
             data={{
               labels: ["Fraud", "Expenses", "Revenue", "Churn"],
@@ -263,7 +272,7 @@ Please review and take action.
             }}
             options={{ scales: { y: { beginAtZero: true } } }}
           />
-          <p className="text-gray-600 mt-2 font-bold">{alerts.length > 0? `${topAlertType()}` : "No category data available"}</p>
+          <p className={`${mutedTxt} mt-2 font-bold`}>{alerts.length > 0? `${topAlertType()}` : "No category data available"}</p>
         </div>
       </div>
 
@@ -280,31 +289,31 @@ Please review and take action.
           const ai = generateAIInsight(alert);
           const cutAmount = expenses * (costCutSlider / 100);
           return (
-            <div key={alert.id} className={`bg-white/70 backdrop-blur-xl p-6 rounded-2xl shadow-xl border-l-4 ${borderColor} font-bold`}>
+            <div key={alert.id} className={`${cardCls} p-6 rounded-2xl shadow-xl border-l-4 ${borderColor} font-bold`}>
               <div className="flex justify-between items-start mb-2">
                 <h3 className={`text-lg font-bold ${titleColor}`}>{ai.title}</h3>
                 <span className="px-3 py-1 rounded-full text-xs font-bold text-white" style={{background: ai.riskColor}}>{ai.risk} RISK</span>
               </div>
-              <p className="text-gray-700 font-bold">{alert.message}</p>
-              <div className="bg-gray-100/70 p-4 rounded-xl mb-3 mt-2">
+              <p className={`font-bold ${dark? "text-gray-200" : "text-gray-700"}`}>{alert.message}</p>
+              <div className={`${innerCls} p-4 rounded-xl mb-3 mt-2`}>
                 <p className="text-sm mb-1">🧠 <span className="font-bold">Root Cause:</span> {ai.rootCause}</p>
                 <p className="text-sm mb-1">🔮 <span className="font-bold">Forecast:</span> {ai.forecast}</p>
                 <p className="text-sm">📊 <span className="font-bold">Analysis:</span> {ai.insight}</p>
               </div>
-              <div className="mt-2 p-3 bg-gray-50 rounded-lg">
-                <p className="text-gray-600 text-sm">Income: <span className="font-extrabold">{formatAmount(revenue, currency)}</span></p>
-                <p className="text-gray-600 text-sm">Expenses: <span className="font-extrabold">{formatAmount(expenses, currency)}</span></p>
-                <p className="text-gray-600 text-sm">Net: <span className="font-extrabold">{formatAmount(net, currency)}</span></p>
+              <div className={`mt-2 p-3 rounded-lg ${innerCls}`}>
+                <p className={`text-sm ${mutedTxt}`}>Income: <span className="font-extrabold">{formatAmount(revenue, currency)}</span></p>
+                <p className={`text-sm ${mutedTxt}`}>Expenses: <span className="font-extrabold">{formatAmount(expenses, currency)}</span></p>
+                <p className={`text-sm ${mutedTxt}`}>Net: <span className="font-extrabold">{formatAmount(net, currency)}</span></p>
               </div>
               {alert.type === "expense" && (
-                <div className="mt-3 p-3 bg-teal-50 rounded-xl border-teal-200">
-                  <h4 className="font-extrabold text-teal-700 mb-2">🔧 What-If Simulator</h4>
+                <div className={`mt-3 p-3 rounded-xl ${dark? "bg-teal-900/30 border border-teal-700/30" : "bg-teal-50 border border-teal-200"}`}>
+                  <h4 className={`font-extrabold mb-2 ${dark? "text-teal-300" : "text-teal-700"}`}>🔧 What-If Simulator</h4>
                   <input type="range" min="0" max="30" value={costCutSlider} onChange={(e) => setCostCutSlider(Number(e.target.value))} className="w-full"/>
                   <p className="text-sm mt-1">Cut by {costCutSlider}% = Save {formatAmount(cutAmount, currency)}/month</p>
                 </div>
               )}
-              <p className="text-gray-500 text-sm mt-1 font-bold">{generateWhy(alert)}</p>
-              <ul className="text-sm text-gray-600 mt-2">{generateActions(alert).map((step, i) => (<li key={i}>👉 {step}</li>))}</ul>
+              <p className={`text-sm mt-1 font-bold ${mutedTxt}`}>{generateWhy(alert)}</p>
+              <ul className={`text-sm mt-2 ${mutedTxt}`}>{generateActions(alert).map((step, i) => (<li key={i}>👉 {step}</li>))}</ul>
               <span className={`px-2 py-1 rounded-lg font-extrabold inline-block mt-2 ${ alert.type === "revenue"? "bg-green-100 text-green-700" : alert.type === "expense"? "bg-yellow-100 text-yellow-700" : alert.type === "churn"? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700" }`}>{alert.type}</span>
               <div className="mt-3 flex space-x-4 font-bold flex-wrap gap-2">
                 <button onClick={() => { setSelectedAlert(alert); setShowModal(true); }} className="bg-teal-500 text-white px-4 py-2 rounded hover:bg-teal-600 font-bold">Resolve</button>
@@ -319,13 +328,13 @@ Please review and take action.
 
       {showModal && selectedAlert && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-40">
-          <div className="bg-white/90 backdrop-blur-xl p-6 rounded-2xl shadow-2xl max-w-md font-bold">
-            <h3 className="text-lg font-bold mb-4 text-gray-800">Alert Details</h3>
-            <p className="text-gray-700 mb-4 font-bold">{selectedAlert.message}</p>
-            <p className="text-gray-600 mb-4 font-bold">Explanation:</p>
-            <p className="text-gray-500 mb-4">{generateWhy(selectedAlert)}</p>
-            <p className="text-gray-600 mb-4 font-bold">Suggested Actions:</p>
-            <ul className="text-sm text-gray-700 mb-4">{generateActions(selectedAlert).map((step, i) => (<li key={i}>👉 {step}</li>))}</ul>
+          <div className={`${cardCls} p-6 rounded-2xl shadow-2xl max-w-md font-bold`}>
+            <h3 className={`text-lg font-bold mb-4 ${headingTxt}`}>Alert Details</h3>
+            <p className={`mb-4 font-bold ${dark? "text-gray-200" : "text-gray-700"}`}>{selectedAlert.message}</p>
+            <p className={`${mutedTxt} mb-4 font-bold`}>Explanation:</p>
+            <p className={`${mutedTxt} mb-4`}>{generateWhy(selectedAlert)}</p>
+            <p className={`${mutedTxt} mb-4 font-bold`}>Suggested Actions:</p>
+            <ul className={`text-sm mb-4 ${dark? "text-gray-200" : "text-gray-700"}`}>{generateActions(selectedAlert).map((step, i) => (<li key={i}>👉 {step}</li>))}</ul>
             <div className="flex justify-between font-bold">
               <button onClick={() => setShowModal(false)} className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400 font-bold">Close</button>
             </div>
@@ -335,9 +344,9 @@ Please review and take action.
 
       {emailPreview && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-6 rounded-2xl shadow-2xl max-w-lg w-full mx-4">
+          <div className={`${cardCls} p-6 rounded-2xl shadow-2xl max-w-lg w-full mx-4`}>
             <h3 className="font-extrabold text-lg mb-2">Subject: {emailPreview.subject}</h3>
-            <pre className="bg-gray-100 p-4 rounded-xl text-sm whitespace-pre-wrap max-h-96 overflow-y-auto">{emailPreview.body}</pre>
+            <pre className={`p-4 rounded-xl text-sm whitespace-pre-wrap max-h-96 overflow-y-auto ${innerCls}`}>{emailPreview.body}</pre>
             <div className="flex justify-between mt-4">
               <button onClick={() => setEmailPreview(null)} className="bg-gray-300 px-4 py-2 rounded font-bold">Close</button>
               <button onClick={() => {
