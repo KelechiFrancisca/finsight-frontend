@@ -163,7 +163,7 @@ function Settings() {
               <label className="block text-gray-700 font-bold mb-1">Business Name</label>
               <input
                 type="text"
-                placeholder="e.g. Kelechi Stores Ltd"
+                placeholder="e.g. Divine Ventures"
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 font-bold focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
