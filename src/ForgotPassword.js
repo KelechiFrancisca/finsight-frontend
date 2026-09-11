@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import API_BASE_URL from "./apiConfig";   // ✅ centralized import
+import { FaEnvelope, FaCheckCircle } from "react-icons/fa";
+import API_BASE_URL from "./apiConfig";
 
 function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -9,7 +10,6 @@ function ForgotPassword() {
   const [successMessage, setSuccessMessage] = useState("");
   const navigate = useNavigate();
 
-  // ✅ Validation
   const validate = () => {
     const newErrors = {};
     if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = "Invalid email address.";
@@ -33,7 +33,7 @@ function ForgotPassword() {
       const data = await response.json();
 
       if (response.ok) {
-        setSuccessMessage("✅ Password reset link sent to your email!");
+        setSuccessMessage("Password reset link sent to your email!");
       } else {
         setErrors({ form: data.error || "Failed to send reset link" });
       }
@@ -45,55 +45,62 @@ function ForgotPassword() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-100 font-bold">
-      {/* Navigation Bar */}
-      <nav className="bg-white shadow-md rounded-lg mb-6 p-4 flex justify-between items-center font-bold">
-        <h1 className="text-xl font-extrabold text-gray-800">Business Dashboard</h1>
-        <div className="space-x-4">
-          <a href="/dashboard" className="px-3 py-2 rounded bg-gray-200 hover:bg-teal-500 hover:text-white font-bold">Dashboard</a>
-          <a href="/forecast" className="px-3 py-2 rounded bg-gray-200 hover:bg-teal-500 hover:text-white font-bold">Forecast</a>
-          <a href="/alerts" className="px-3 py-2 rounded bg-gray-200 hover:bg-teal-500 hover:text-white font-bold">Alerts</a>
-          <a href="/settings" className="px-3 py-2 rounded bg-gray-200 hover:bg-teal-500 hover:text-white font-bold">Settings</a>
-          <a href="/profile" className="px-3 py-2 rounded bg-gray-200 hover:bg-teal-500 hover:text-white font-bold">Profile</a>
-          <a href="/login" className="px-3 py-2 rounded bg-blue-600 text-white font-bold">Login</a>
-          <a href="/register" className="px-3 py-2 rounded bg-green-600 text-white font-bold">Register</a>
-        </div>
-      </nav>
+  const inputCls = "w-full border border-gray-200 rounded-xl px-4 py-3 font-bold bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 pl-11";
+  const labelCls = "block text-sm font-bold text-gray-700 mb-1";
 
-      {/* Forgot Password Form */}
-      <div className="flex items-center justify-center">
+  return (
+    <div className="bg-gradient-to-br from-gray-50 to-teal-50 min-h-screen p-6 flex items-center justify-center">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-extrabold text-gray-800">Reset password</h1>
+          <p className="text-gray-600 font-bold text-sm mt-1">We'll send you a reset link</p>
+        </div>
+
         <form
           onSubmit={handleSubmit}
-          className="bg-white p-6 rounded-lg shadow-md w-96 font-bold"
+          className="bg-white/70 backdrop-blur-xl p-8 rounded-2xl shadow-xl"
         >
-          <h2 className="text-2xl font-extrabold mb-4 text-gray-800">Forgot Password</h2>
+          <h2 className="text-xl font-extrabold mb-6 text-gray-800">Forgot Password</h2>
 
-          {successMessage && <p className="text-green-600 font-extrabold mb-2">{successMessage}</p>}
-          {errors.form && <p className="text-red-600 font-extrabold mb-2">{errors.form}</p>}
+          {successMessage && (
+            <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl font-bold flex items-center gap-2">
+              <FaCheckCircle /> {successMessage}
+            </div>
+          )}
+          {errors.form && (
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl font-bold">
+              {errors.form}
+            </div>
+          )}
 
-          <input
-            type="email"
-            placeholder="Enter your email"
-            className="w-full mb-2 p-2 border rounded font-bold"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          {errors.email && <p className="text-red-500 text-sm mb-2 font-bold">{errors.email}</p>}
+          <div className="mb-4">
+            <label className={labelCls}>Email Address</label>
+            <div className="relative">
+              <FaEnvelope className="absolute left-4 top-4 text-gray-400 text-sm" />
+              <input
+                type="email"
+                placeholder="e.g. alex@company.com"
+                className={inputCls}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            {errors.email && <p className="text-red-500 text-sm mt-1 font-bold">{errors.email}</p>}
+          </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 disabled:opacity-50 font-extrabold"
+            className="w-full bg-teal-600 text-white py-3 rounded-xl hover:bg-teal-700 disabled:opacity-50 font-extrabold transition"
           >
             {loading ? "Sending..." : "Send Reset Link"}
           </button>
 
-          <p className="mt-3 text-sm font-bold">
+          <p className="mt-4 text-sm font-bold text-center text-gray-600">
             Remembered your password?{" "}
             <span
-              className="text-blue-600 cursor-pointer font-extrabold"
+              className="text-teal-600 cursor-pointer font-extrabold hover:underline"
               onClick={() => navigate("/login")}
             >
               Back to Login

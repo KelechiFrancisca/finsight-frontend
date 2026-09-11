@@ -1,17 +1,18 @@
 import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import API_BASE_URL from "./apiConfig";   // ✅ centralized import
+import { FaLock, FaCheckCircle } from "react-icons/fa";
+import API_BASE_URL from "./apiConfig";
 
 function ResetPassword() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState("");
   const navigate = useNavigate();
-  const { token } = useParams(); // token from reset link
+  const { token } = useParams();
 
-  // ✅ Validation
   const validate = () => {
     const newErrors = {};
     if (newPassword.length < 8) newErrors.newPassword = "Password must be at least 8 characters.";
@@ -30,13 +31,13 @@ function ResetPassword() {
       const response = await fetch(`${API_BASE_URL}/reset-password/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newPassword }),
+        body: JSON.stringify({ password: newPassword }), // ✅ fixed to match backend
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        setSuccessMessage("✅ Password reset successful! Redirecting to login...");
+        setSuccessMessage("Password reset successful! Redirecting to login...");
         setTimeout(() => navigate("/login"), 2000);
       } else {
         setErrors({ form: data.error || "Failed to reset password" });
@@ -49,43 +50,88 @@ function ResetPassword() {
     }
   };
 
+  const inputCls = "w-full border border-gray-200 rounded-xl px-4 py-3 font-bold bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 pl-11 pr-16";
+  const labelCls = "block text-sm font-bold text-gray-700 mb-1";
+
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 font-bold">
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md w-96 font-bold">
-        <h2 className="text-2xl font-extrabold mb-4 text-gray-800">Reset Password</h2>
+    <div className="bg-gradient-to-br from-gray-50 to-teal-50 min-h-screen p-6 flex items-center justify-center">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-extrabold text-gray-800">Set new password</h1>
+          <p className="text-gray-600 font-bold text-sm mt-1">Choose a strong password</p>
+        </div>
 
-        {successMessage && <p className="text-green-600 font-extrabold mb-2">{successMessage}</p>}
-        {errors.form && <p className="text-red-600 font-extrabold mb-2">{errors.form}</p>}
+        <form onSubmit={handleSubmit} className="bg-white/70 backdrop-blur-xl p-8 rounded-2xl shadow-xl">
+          <h2 className="text-xl font-extrabold mb-6 text-gray-800">Reset Password</h2>
 
-        <input
-          type="password"
-          placeholder="New Password"
-          className="w-full mb-2 p-2 border rounded font-bold"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          required
-        />
-        {errors.newPassword && <p className="text-red-500 text-sm mb-2 font-bold">{errors.newPassword}</p>}
+          {successMessage && (
+            <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl font-bold flex items-center gap-2">
+              <FaCheckCircle /> {successMessage}
+            </div>
+          )}
+          {errors.form && (
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl font-bold">
+              {errors.form}
+            </div>
+          )}
 
-        <input
-          type="password"
-          placeholder="Confirm Password"
-          className="w-full mb-2 p-2 border rounded font-bold"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          required
-        />
-        {errors.confirmPassword && <p className="text-red-500 text-sm mb-2 font-bold">{errors.confirmPassword}</p>}
+          <div className="mb-3">
+            <label className={labelCls}>New Password</label>
+            <div className="relative">
+              <FaLock className="absolute left-4 top-4 text-gray-400 text-sm" />
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Minimum 8 characters"
+                className={inputCls}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+              />
+              <span
+                className="absolute right-4 top-3 cursor-pointer text-sm text-teal-600 font-bold"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </span>
+            </div>
+            {errors.newPassword && <p className="text-red-500 text-sm mt-1 font-bold">{errors.newPassword}</p>}
+          </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className={`w-full py-2 rounded font-extrabold text-white 
-            ${loading ? "bg-gray-400 cursor-not-allowed" : "bg-green-500 hover:bg-green-600"}`}
-        >
-          {loading ? "Resetting..." : "Reset Password"}
-        </button>
-      </form>
+          <div className="mb-4">
+            <label className={labelCls}>Confirm Password</label>
+            <div className="relative">
+              <FaLock className="absolute left-4 top-4 text-gray-400 text-sm" />
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Repeat new password"
+                className={inputCls}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
+            {errors.confirmPassword && <p className="text-red-500 text-sm mt-1 font-bold">{errors.confirmPassword}</p>}
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 rounded-xl font-extrabold text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 transition"
+          >
+            {loading ? "Resetting..." : "Reset Password"}
+          </button>
+
+          <p className="mt-4 text-sm font-bold text-center text-gray-600">
+            Back to{" "}
+            <span
+              className="text-teal-600 cursor-pointer font-extrabold hover:underline"
+              onClick={() => navigate("/login")}
+            >
+              Login
+            </span>
+          </p>
+        </form>
+      </div>
     </div>
   );
 }

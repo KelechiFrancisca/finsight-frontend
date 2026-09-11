@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import API_BASE_URL from "./apiConfig";   // ✅ centralized import
+import { FaUser, FaLock, FaSignOutAlt, FaCheckCircle } from "react-icons/fa";
+import API_BASE_URL from "./apiConfig";
 
 function Profile() {
   const [profile, setProfile] = useState({ name: "", email: "", phone: "", role: "" });
@@ -12,19 +13,17 @@ function Profile() {
   const [savingPassword, setSavingPassword] = useState(false);
   const navigate = useNavigate();
 
-  // ✅ Load profile
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
       navigate("/login");
       return;
     }
-
     fetch(`${API_BASE_URL}/users/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((res) => res.json())
-      .then((data) => {
+    .then((res) => res.json())
+    .then((data) => {
         if (data.error) {
           navigate("/login");
         } else {
@@ -36,31 +35,27 @@ function Profile() {
           });
         }
       })
-      .catch((err) => {
-        console.error("Error fetching profile:", err);
-      })
-      .finally(() => setLoading(false));
+    .catch((err) => console.error("Error fetching profile:", err))
+    .finally(() => setLoading(false));
   }, [navigate]);
 
-  // ✅ Handle input change
   const handleChange = (e) => {
-    setProfile({ ...profile, [e.target.name]: e.target.value });
-    setErrors({ ...errors, [e.target.name]: "" });
+    setProfile({...profile, [e.target.name]: e.target.value });
+    setErrors({...errors, [e.target.name]: "" });
     setSuccessMessage("");
   };
 
   const handlePasswordChange = (e) => {
-    setPasswords({ ...passwords, [e.target.name]: e.target.value });
-    setErrors({ ...errors, [e.target.name]: "" });
+    setPasswords({...passwords, [e.target.name]: e.target.value });
+    setErrors({...errors, [e.target.name]: "" });
     setSuccessMessage("");
   };
 
-  // ✅ Validation
   const validateProfile = () => {
     const newErrors = {};
     if (!profile.name.trim()) newErrors.name = "Name is required.";
     if (!/\S+@\S+\.\S+/.test(profile.email)) newErrors.email = "Invalid email address.";
-    if (profile.phone && !/^\+?[0-9\s-]{7,15}$/.test(profile.phone)) newErrors.phone = "Invalid phone number.";
+    if (profile.phone &&!/^\+?[0-9\s-]{7,15}$/.test(profile.phone)) newErrors.phone = "Invalid phone number.";
     if (!profile.role) newErrors.role = "Role is required.";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -74,7 +69,6 @@ function Profile() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // ✅ Save profile
   const handleSaveProfile = async () => {
     if (!validateProfile()) return;
     const token = localStorage.getItem("token");
@@ -82,163 +76,158 @@ function Profile() {
     try {
       const response = await fetch(`${API_BASE_URL}/users/me`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(profile),
       });
       const data = await response.json();
-      if (response.ok) {
-        setSuccessMessage("Profile updated successfully!");
-      } else {
-        setErrors({ form: data.error || "Failed to update profile" });
-      }
-    } catch (error) {
-      console.error("Error updating profile:", error);
+      if (response.ok) setSuccessMessage("Profile updated successfully!");
+      else setErrors({ form: data.error || "Failed to update profile" });
+    } catch {
       setErrors({ form: "Server error" });
     } finally {
       setSaving(false);
     }
   };
 
-  // ✅ Save password
   const handleSavePassword = async () => {
     if (!validatePassword()) return;
     const token = localStorage.getItem("token");
     setSavingPassword(true);
     try {
-      // ✅ Correct backend route: /api/change-password
       const response = await fetch(`${API_BASE_URL}/change-password`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(passwords),
       });
       const data = await response.json();
       if (response.ok) {
         setSuccessMessage("Password updated successfully!");
         setPasswords({ currentPassword: "", newPassword: "" });
-      } else {
-        setErrors({ form: data.error || "Failed to update password" });
-      }
-    } catch (error) {
-      console.error("Error updating password:", error);
+      } else setErrors({ form: data.error || "Failed to update password" });
+    } catch {
       setErrors({ form: "Server error" });
     } finally {
       setSavingPassword(false);
     }
   };
 
-  // ✅ Logout
   const handleLogout = () => {
     localStorage.removeItem("token");
     navigate("/login");
   };
 
-  if (loading) return <p className="font-bold">Loading profile...</p>;
+  const inputCls = "w-full border border-gray-200 rounded-xl px-4 py-3 font-bold bg-white focus:outline-none focus:ring-2 focus:ring-teal-500";
+  const labelCls = "block text-sm font-bold text-gray-700 mb-1";
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="font-bold animate-pulse">Loading profile...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-lg mx-auto bg-white p-6 rounded shadow-md space-y-8 font-bold">
-      {successMessage && <p className="text-green-600 font-extrabold">{successMessage}</p>}
-      {errors.form && <p className="text-red-600 font-extrabold">{errors.form}</p>}
+    <div className="bg-gradient-to-br from-gray-50 to-teal-50 min-h-screen p-6">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-2xl font-extrabold text-gray-800 mb-1">Profile</h1>
+        <p className="text-gray-600 font-bold mb-6">Manage your personal account and security.</p>
 
-      {/* Personal Information */}
-      <div>
-        <h2 className="text-2xl font-extrabold mb-4">Personal Information</h2>
-        <input
-          type="text"
-          name="name"
-          placeholder="Full Name"
-          className="w-full mb-1 p-2 border rounded font-bold"
-          value={profile.name}
-          onChange={handleChange}
-        />
-        {errors.name && <p className="text-red-500 text-sm mb-2 font-bold">{errors.name}</p>}
+        {successMessage && (
+          <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl font-bold flex items-center gap-2">
+            <FaCheckCircle /> {successMessage}
+          </div>
+        )}
+        {errors.form && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl font-bold">
+            {errors.form}
+          </div>
+        )}
 
-        <input
-          type="email"
-          name="email"
-          placeholder="Email Address"
-          className="w-full mb-1 p-2 border rounded font-bold"
-          value={profile.email}
-          onChange={handleChange}
-        />
-        {errors.email && <p className="text-red-500 text-sm mb-2 font-bold">{errors.email}</p>}
+        <div className="grid md:grid-cols-2 gap-6">
+          <div className="bg-white/70 backdrop-blur-xl p-6 rounded-2xl shadow-xl">
+            <div className="flex items-center gap-2 mb-4">
+              <FaUser className="text-teal-600" />
+              <h2 className="text-lg font-extrabold text-gray-800">Personal Information</h2>
+            </div>
 
-        <input
-          type="text"
-          name="phone"
-          placeholder="Phone Number"
-          className="w-full mb-1 p-2 border rounded font-bold"
-          value={profile.phone}
-          onChange={handleChange}
-        />
-        {errors.phone && <p className="text-red-500 text-sm mb-2 font-bold">{errors.phone}</p>}
+            <div className="space-y-3">
+              <div>
+                <label className={labelCls}>Full Name</label>
+                <input type="text" name="name" placeholder="e.g. Alex Morgan" className={inputCls} value={profile.name} onChange={handleChange} />
+                {errors.name && <p className="text-red-500 text-sm font-bold mt-1">{errors.name}</p>}
+              </div>
+              <div>
+                <label className={labelCls}>Email Address</label>
+                <input type="email" name="email" placeholder="e.g. alex@company.com" className={inputCls} value={profile.email} onChange={handleChange} />
+                {errors.email && <p className="text-red-500 text-sm font-bold mt-1">{errors.email}</p>}
+              </div>
+              <div>
+                <label className={labelCls}>Phone Number</label>
+                <input type="text" name="phone" placeholder="e.g. +1 555 000 1234" className={inputCls} value={profile.phone} onChange={handleChange} />
+                {errors.phone && <p className="text-red-500 text-sm font-bold mt-1">{errors.phone}</p>}
+              </div>
+              <div>
+                <label className={labelCls}>Role</label>
+                <select name="role" className={inputCls} value={profile.role} onChange={handleChange}>
+                  <option value="">Select Role</option>
+                  <option value="owner">Owner</option>
+                  <option value="admin">Admin</option>
+                  <option value="user">User</option>
+                </select>
+                {errors.role && <p className="text-red-500 text-sm font-bold mt-1">{errors.role}</p>}
+              </div>
 
-        <select
-          name="role"
-          className="w-full mb-1 p-2 border rounded font-bold"
-          value={profile.role}
-          onChange={handleChange}
-        >
-          <option value="">Select Role</option>
-          <option value="owner">Owner</option>
-          <option value="admin">Admin</option>
-          <option value="user">User</option>
-        </select>
-        {errors.role && <p className="text-red-500 text-sm mb-2 font-bold">{errors.role}</p>}
+              <button
+                onClick={handleSaveProfile}
+                disabled={saving}
+                className="w-full bg-teal-600 text-white py-3 rounded-xl hover:bg-teal-700 font-extrabold disabled:opacity-50"
+              >
+                {saving? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
 
-        <button
-          onClick={handleSaveProfile}
-          disabled={saving}
-          className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 mb-3 disabled:opacity-50 font-extrabold"
-        >
-          {saving ? "Saving..." : "Save Changes"}
-        </button>
+          <div className="space-y-6">
+            <div className="bg-white/70 backdrop-blur-xl p-6 rounded-2xl shadow-xl">
+              <div className="flex items-center gap-2 mb-4">
+                <FaLock className="text-indigo-600" />
+                <h2 className="text-lg font-extrabold text-gray-800">Change Password</h2>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className={labelCls}>Current Password</label>
+                  <input type="password" name="currentPassword" placeholder="••••••••" className={inputCls} value={passwords.currentPassword} onChange={handlePasswordChange} />
+                  {errors.currentPassword && <p className="text-red-500 text-sm font-bold mt-1">{errors.currentPassword}</p>}
+                </div>
+                <div>
+                  <label className={labelCls}>New Password</label>
+                  <input type="password" name="newPassword" placeholder="Minimum 8 characters" className={inputCls} value={passwords.newPassword} onChange={handlePasswordChange} />
+                  {errors.newPassword && <p className="text-red-500 text-sm font-bold mt-1">{errors.newPassword}</p>}
+                </div>
+                <button
+                  onClick={handleSavePassword}
+                  disabled={savingPassword}
+                  className="w-full bg-indigo-600 text-white py-3 rounded-xl hover:bg-indigo-700 font-extrabold disabled:opacity-50"
+                >
+                  {savingPassword? "Updating..." : "Update Password"}
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white/70 backdrop-blur-xl p-6 rounded-2xl shadow-xl">
+              <h2 className="text-lg font-extrabold text-gray-800 mb-2">Session</h2>
+              <p className="text-gray-600 font-bold text-sm mb-4">Log out of your account on this device.</p>
+              <button
+                onClick={handleLogout}
+                className="w-full bg-red-600 text-white py-3 rounded-xl hover:bg-red-700 font-extrabold flex items-center justify-center gap-2"
+              >
+                <FaSignOutAlt /> Logout
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-
-      {/* Change Password */}
-      <div>
-        <h2 className="text-2xl font-extrabold mb-4">Change Password</h2>
-        <input
-          type="password"
-          name="currentPassword"
-          placeholder="Current Password"
-          className="w-full mb-1 p-2 border rounded font-bold"
-          value={passwords.currentPassword}
-          onChange={handlePasswordChange}
-        />
-        {errors.currentPassword && <p className="text-red-500 text-sm mb-2 font-bold">{errors.currentPassword}</p>}
-
-        <input
-          type="password"
-          name="newPassword"
-          placeholder="New Password"
-          className="w-full mb-1 p-2 border rounded font-bold"
-          value={passwords.newPassword}
-          onChange={handlePasswordChange}
-        />
-        {errors.newPassword && <p className="text-red-500 text-sm mb-2 font-bold">{errors.newPassword}</p>}
-
-        <button
-          onClick={handleSavePassword}
-          disabled={savingPassword}
-          className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600 mb-3 disabled:opacity-50 font-extrabold"
-        >
-          {savingPassword ? "Saving..." : "Update Password"}
-        </button>
-      </div>
-
-            {/* Logout */}
-      <button
-        onClick={handleLogout}
-        className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 font-extrabold"
-      >
-        Logout
-      </button>
     </div>
   );
 }
