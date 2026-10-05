@@ -43,7 +43,7 @@ function Dashboard() {
     const baseUrl =
       window.location.hostname === "localhost"
         ? "http://localhost:5000"
-        : "https://ai-business-insights-dashboard.onrender.com";
+        : "https://finsight-backend-byae.onrender.com";
 
     const token = localStorage.getItem("token");
 
@@ -151,7 +151,7 @@ function Dashboard() {
   const baseUrl =
     window.location.hostname === "localhost"
       ? "http://localhost:5000"
-      : "https://ai-business-insights-dashboard.onrender.com";
+      : "https://finsight-backend-byae.onrender.com";
 
   // Load entries
   useEffect(() => {
