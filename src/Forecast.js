@@ -174,13 +174,13 @@ function Forecast({ isDarkMode }) {
     if (profitMargin > 0) probability += 8;
 
     if (goalType === "profit") {
-      whatsNeededText = `Reduce ${realTopCat} by 10% and focus more sales on ${busiestDay}. You earn ${formatAmount(realBusiestAvg, currency)} on ${busiestDay} on average.`;
+      whatsNeededText = `Reduce ${realTopCat} by 10% and focus more sales on ${busiestDay}. You earn ${formatAmount(realBusiestAvg, currency)} on ${busiestDay} on average. If you do nothing, ${realTopCat} keeps eating ${formatAmount(realTopAmt * 12, currency)} per year.`;
       moneyNeeded = 0;
       moneySave = realTopAmt * 0.1;
     }
     else if (goalType === "costs") {
       const pct = businessMemory?.top_expense_percent || (realTopAmt / Math.max(realTotalExp, 1) * 100);
-      whatsNeededText = `Reduce ${realTopCat} by 20%. It is ${pct.toFixed(0)}% of your total spending (${formatAmount(realTopAmt, currency)}).`;
+      whatsNeededText = `Reduce ${realTopCat} by 20%. It is ${pct.toFixed(0)}% of your spending (${formatAmount(realTopAmt, currency)}). If you do nothing, you lose ${formatAmount(realTopAmt * 0.2 * 12, currency)} every year.`;
       moneyNeeded = 0;
       moneySave = realTopAmt * 0.2;
       difficulty = "Easy";
@@ -188,48 +188,52 @@ function Forecast({ isDarkMode }) {
     }
     else if (goalType === "hire") {
       const staffCost = Math.round(realAvgBurn * 0.6) || Math.round(avgDailyIncome * 20);
+      const newRunwayHire = realAvgBurn > 0? currentCash / (realAvgBurn + staffCost) : 0;
       const canHire = netProfit > staffCost;
-      whatsNeededText = canHire? `You can hire now. You have ${formatAmount(netProfit, currency)} left per month. Salary ${formatAmount(staffCost, currency)} leaves ${formatAmount(netProfit - staffCost, currency)}.` : `Wait 2 months. You need ${formatAmount(staffCost, currency)} for salary. Cut ${realTopCat} first.`;
+      whatsNeededText = canHire? `Hiring now cuts your cash from ${realRunwayData.text} to ${newRunwayHire.toFixed(1)} months. Salary ${formatAmount(staffCost, currency)} leaves ${formatAmount(netProfit - staffCost, currency)}. Safe to hire but watch cash.` : `If you hire now, cash runs out faster: from ${realRunwayData.text} to ${newRunwayHire.toFixed(1)} months. You need ${formatAmount(staffCost, currency)} for salary. Not recommended until you make ${formatAmount(staffCost + 10000, currency)} extra per month.`;
       moneyNeeded = staffCost;
       moneySave = canHire? netProfit - staffCost : 0;
-      probability = canHire? 85 : 45;
+      probability = canHire? 75 : 35;
       difficulty = canHire? "Easy" : "High";
     }
     else if (goalType === "branch") {
       const branchCost = realTotalExp * 3;
       const canBranch = currentCash > branchCost;
-      whatsNeededText = canBranch? `You have enough to open another shop. You have ${formatAmount(currentCash, currency)} and you need ${formatAmount(branchCost, currency)}.` : `You need ${formatAmount(branchCost, currency)} to open another shop. Save for ${Math.ceil(branchCost / Math.max(netProfit, 1))} months.`;
+      const newRunwayBranch = realAvgBurn > 0? currentCash / (realAvgBurn + branchCost / 6) : 0;
+      whatsNeededText = canBranch? `You have ${formatAmount(currentCash, currency)} and need ${formatAmount(branchCost, currency)} for another shop. If you open now, cash lasts ${newRunwayBranch.toFixed(1)} months instead of ${realRunwayData.text}.` : `You cannot afford another shop yet. You need ${formatAmount(branchCost, currency)}. If you open now, you run out in ${newRunwayBranch.toFixed(1)} months. Save for ${Math.ceil(branchCost / Math.max(netProfit, 1))} months.`;
       moneyNeeded = branchCost;
       moneySave = canBranch? realTotalExp * 0.1 : 0;
-      probability = canBranch? 78 : 40;
+      probability = canBranch? 68 : 30;
       difficulty = canBranch? "Medium" : "High";
     }
     else if (goalType === "equipment") {
       const equipCost = Math.round(realTopAmt * 1.2) || Math.round(avgMonthlyExpense * 2);
-      whatsNeededText = `Equipment costs ${formatAmount(equipCost, currency)}. It will help reduce your ${realTopCat} spending.`;
+      const newRunwayEquip = realAvgBurn > 0? currentCash / (realAvgBurn + equipCost / 6) : 0;
+      whatsNeededText = `Equipment costs ${formatAmount(equipCost, currency)}. If you buy now, cash goes from ${realRunwayData.text} to ${newRunwayEquip.toFixed(1)} months. It will cut your ${realTopCat} spending later.`;
       moneyNeeded = equipCost;
       moneySave = equipCost * 0.3;
-      probability = 80;
+      probability = 70;
     }
     else if (goalType === "cashflow") {
-      whatsNeededText = `Focus sales on ${busiestDay}. You make ${formatAmount(realBusiestAvg, currency)} on ${busiestDay} compared to ${formatAmount(realWeakestAvg, currency)} on ${weakestDay}.`;
+      whatsNeededText = `Focus sales on ${busiestDay}. You make ${formatAmount(realBusiestAvg, currency)} on ${busiestDay} vs ${formatAmount(realWeakestAvg, currency)} on ${weakestDay}. If you do nothing, ${weakestDay} stays slow and you lose ${formatAmount((realBusiestAvg - realWeakestAvg) * 4, currency)} per month.`;
       moneyNeeded = 0;
       moneySave = (realBusiestAvg - realWeakestAvg);
     }
     else if (goalType === "margin") {
-      if (profitMargin >= 20) whatsNeededText = `Great job. You keep ${profitMargin.toFixed(0)}% of every ${formatAmount(100, currency)} you sell. Your target was 20%.`;
-      else whatsNeededText = `You keep ${profitMargin.toFixed(0)}% of every ${formatAmount(100, currency)} you sell. To reach 20%, cut ${realTopCat} by 10% to save ${formatAmount(realTopAmt * 0.1, currency)} per month.`;
+      if (profitMargin >= 20) whatsNeededText = `Good job. You keep ${profitMargin.toFixed(0)}% of every ${formatAmount(100, currency)} you sell. Your target was 20%. If you do nothing, you stay safe at ${profitMargin.toFixed(0)}%.`;
+      else whatsNeededText = `You keep ${profitMargin.toFixed(0)}% of every ${formatAmount(100, currency)} you sell. To reach 20%, cut ${realTopCat} by 10% to save ${formatAmount(realTopAmt * 0.1, currency)} per month. If you do nothing, you keep losing that ${formatAmount(realTopAmt * 0.1 * 12, currency)} per year.`;
       moneyNeeded = 0;
       moneySave = realTopAmt * 0.1;
     }
     else if (goalType === "custom") {
       const nums = goalInput.match(/\d+/g);
       let customCost = nums? parseInt(nums[0]) * (avgDailyIncome || 1000) : realTotalExp * 1.5;
-      whatsNeededText = `"${goalInput}" will cost about ${formatAmount(customCost, currency)}. You have ${formatAmount(currentCash, currency)} now. ${currentCash >= customCost? "You can start now." : `Save for ${Math.ceil(customCost / Math.max(avgMonthlyRevenue, 1))} months.`}`;
+      const newRunwayCustom = realAvgBurn > 0? currentCash / (realAvgBurn + customCost / 6) : 0;
+      whatsNeededText = `"${goalInput}" costs about ${formatAmount(customCost, currency)}. You have ${formatAmount(currentCash, currency)} now. If you start now, cash lasts ${newRunwayCustom.toFixed(1)} months vs ${realRunwayData.text}. ${currentCash >= customCost? "You can start now." : `Save for ${Math.ceil(customCost / Math.max(avgMonthlyRevenue, 1))} months.`}`;
       moneyNeeded = customCost;
       moneySave = currentCash >= customCost? currentCash - customCost : 0;
       difficulty = currentCash >= customCost? "Easy" : "Medium";
-      probability = currentCash >= customCost? 90 : 60;
+      probability = currentCash >= customCost? 80 : 50;
     }
 
     probability = Math.min(94, Math.max(35, probability));
@@ -309,7 +313,13 @@ setGoalResult({ whatsNeededText, targetRevenue: moneyNeeded, moneySave, probabil
     <div ref={reportRef} className={isDarkMode? "bg-gray-900 text-white min-h-screen p-4 md:p-6" : "bg-[#fbfaf8] min-h-screen p-4 md:p-6 text-gray-900"}>
       <h1 className="text-4xl font-black">Business Coach {namePart? `— ${namePart}` : ""}</h1>
       <p className="text-sm font-bold opacity-70 mt-1">{realMonthsCount} months • You made {formatAmount(totalRevenue, currency)} • Spent {formatAmount(totalExpenses, currency)} • You keep {formatAmount(netProfit, currency)} • Last month expense {formatAmount(businessMemory?.last_month_expense || 0, currency)}</p>
-      <p className="text-xs opacity-60 mb-6">Business strength {howStrong}/100 • Cash lasts {realRunwayData.text} • You keep {profitMargin.toFixed(0)}% of every {formatAmount(100, currency)} you sell</p>
+      <p className="text-xs opacity-60 mb-3">Business strength {howStrong}/100 • Cash lasts {realRunwayData.text} • You keep {profitMargin.toFixed(0)}% of every {formatAmount(100, currency)} you sell</p>
+
+      <div className="bg-red-600 text-white rounded-[20px] p-5 mb-6 border-2 border-gray-900 shadow-xl">
+        <h2 className="text-xs font-black uppercase tracking-widest">⚠️ If you do nothing</h2>
+        <p className="text-sm font-bold mt-2">Cash runs out in {realRunwayData.text}. {topExpense?.[0] || "Your biggest cost"} stays at {totalExpenses>0? ((topExpense?.[1]||0)/totalExpenses*100).toFixed(0) : 58}% of spending. {weakestDay} sales stay low. You lose about {formatAmount((topExpense?.[1]||0)*0.2*12, currency)}/year if {topExpense?.[0] || "costs"} stays high.</p>
+        <p className="text-xs font-bold mt-2 opacity-90">Action needed this week: Cut {topExpense?.[0] || "costs"} by 10% = save {formatAmount((topExpense?.[1]||0)*0.1, currency)}/month.</p>
+      </div>
 
       <div className={glassCard + " rounded-[20px] p-6 shadow-xl mb-6"}>
         <h2 className="text-sm font-black uppercase tracking-widest">Ask anything</h2>
@@ -325,7 +335,7 @@ setGoalResult({ whatsNeededText, targetRevenue: moneyNeeded, moneySave, probabil
       {businessMemory && (
         <div className={glassCard + " rounded-[20px] p-5 shadow-xl mb-6"}>
           <h2 className="text-xs font-black uppercase tracking-widest">What I know about your business</h2>
-          <p className="text-sm font-bold mt-3">Busiest day: {busiestDay} ({formatAmount(businessMemory.busiest_day_avg || businessMemory.busiest_day_income, currency)} average) • Slowest day: {weakestDay} ({formatAmount(businessMemory.weakest_day_avg || businessMemory.weakest_day_income, currency)} average) • Top product: {businessMemory.top_income_category || "Sales"} • Daily average: {formatAmount(businessMemory.avg_daily_income, currency)}</p>
+          <p className="text-sm font-bold mt-3">Busiest day: {busiestDay} ({formatAmount(businessMemory.busiest_day_avg || businessMemory.busiest_day_income, currency)} average) • Slowest day: {weakestDay} ({formatAmount(businessMemory?.weakest_day_avg || businessMemory?.weakest_day_income, currency)} average) • Top product: {businessMemory.top_income_category || "Sales"} • Daily average: {formatAmount(businessMemory.avg_daily_income, currency)}</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
             <div className={isDarkMode? "bg-gray-700 border border-white/10 p-4 rounded-xl" : "bg-[#e0e7ff] border-2 border-gray-900 p-4 rounded-xl"}>
               <p className="text-xs uppercase font-black">Price idea</p>
@@ -414,7 +424,7 @@ setGoalResult({ whatsNeededText, targetRevenue: moneyNeeded, moneySave, probabil
         <button onClick={() => setShowModal(true)} className="bg-yellow-300 border-2 border-gray-900 px-4 py-2 rounded-full font-black text-xs text-gray-900">Action Plan</button>
       </div>
 
-      <div className={glassCard + " p-5 rounded-2xl shadow mb-6"}>
+      <div className={glassCard + " p-5 rounded-2xl shadow-xl mb-6"}>
         <h3 className="font-black text-sm">What if you cut {topExpense?.[0]} ({formatAmount(topExpense?.[1] || 0, currency)}) by {costCutSlider}%?</h3>
         <input type="range" min="0" max="30" value={costCutSlider} onChange={e => setCostCutSlider(Number(e.target.value))} className="w-full mt-3" />
         <p className="text-sm font-bold mt-2">Save {formatAmount(cutAmount, currency)} per month → Cash lasts {realRunwayData.text} → {(newRunway > 100? "Many months" : newRunway.toFixed(1) + " months")} after cut</p>
