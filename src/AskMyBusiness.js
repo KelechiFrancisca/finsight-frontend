@@ -147,7 +147,7 @@ export default function AskMyBusiness({
         ))}
       </div>
 
-      <p className={`mt-4 text-[12px] font-bold ${isDarkMode? "text-gray-400" : "text-gray-500"}`}>Ask in English, Pidgin, French, Spanish. Your data is real — from your own sales.</p>
+      <p className={`mt-4 text-[12px] font-bold ${isDarkMode? "text-gray-400" : "text-gray-500"}`}>Ask in English, Pidgin, French, Spanish. All answers use your real business numbers.</p>
 
       {answer && (
         <div className={`mt-8 p-7 rounded-2xl ${resultCls}`}>

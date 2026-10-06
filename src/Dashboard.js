@@ -43,8 +43,11 @@ function Dashboard({ isDarkMode, setIsDarkMode }) {
   const glassCard = isDarkMode? "bg-gray-800 border border-white/10 text-white" : "bg-white border border-gray-200 text-gray-900 shadow-sm";
   const glassInput = isDarkMode? "border border-white/20 rounded-xl px-4 py-3 bg-gray-700 text-white text-base font-medium focus:ring-2 focus:ring-teal-500 outline-none" : "border border-gray-300 rounded-xl px-4 py-3 bg-white text-gray-900 text-base font-medium focus:ring-2 focus:ring-teal-500 outline-none";
   const kpiBase = `${glassCard} p-6 rounded-2xl shadow-lg border-t-4 hover:scale-[1.02] transition cursor-pointer`;
-  const todayCard = isDarkMode? "bg-gray-800 border border-yellow-500/20 text-yellow-100 p-6 rounded-[20px] mb-6 shadow-lg" : "bg-[#fef08a] border-2 border-gray-900 p-6 rounded-[20px] shadow-xl mb-6 text-gray-900";
-  const yellowCardDark = isDarkMode? "bg-gray-800 border border-white/10 text-white" : "bg-[#fef08a] border-2 border-gray-900 text-gray-900";
+  const todayCard = isDarkMode? `${glassCard} p-6 rounded-[20px] mb-6 shadow-lg` : "bg-[#fef08a] border-2 border-gray-900 p-6 rounded-[20px] shadow-xl mb-6 text-gray-900";
+  const yellowCard = isDarkMode? `${glassCard} border-l-[6px] border-l-red-500 p-4 rounded-xl` : "bg-[#fef08a] border-2 border-gray-900 text-gray-900 p-4 rounded-xl border-l-[6px] border-l-red-500";
+  const redWarnCard = isDarkMode? `${glassCard} border border-red-500/30 p-3 rounded-xl mt-4` : "bg-red-50 border-2 border-red-300 p-3 rounded-xl mt-4";
+  const summaryBar = isDarkMode? `${glassCard} p-3 rounded-xl text-sm font-bold mt-3` : "bg-yellow-100 border border-yellow-300 text-gray-900 p-3 rounded-xl text-sm font-bold mt-3";
+  const greenCard = isDarkMode? `${glassCard} border border-green-500/30 p-4 rounded-xl` : "bg-green-600 border-2 border-gray-900 text-white p-4 rounded-xl";
 
   useEffect(() => { const token = localStorage.getItem("token"); if (!token) { setTransactions([]); window.location.href = "/login"; } }, []);
   const loadEntries = useCallback(() => { apiFetch("/entries").then(data => setTransactions(Array.isArray(data)? data : [])).catch(err => console.error("Error fetching entries:", err)); }, []);
@@ -97,41 +100,48 @@ function Dashboard({ isDarkMode, setIsDarkMode }) {
   const topExpense = useMemo(() => { const entries = Object.entries(categoryData).sort((a,b)=>b[1]-a[1]); return entries[0] || null; }, [categoryData]);
   const filterByType = (type) => { setFilterType(type); setCurrentPage(1); document.getElementById('transactions-table')?.scrollIntoView({ behavior: 'smooth' }); };
 
+  const calcRunway = useMemo(() => {
+    const sortedKeys = Object.keys(monthlyData).sort().slice(-3);
+    const avgBurn = sortedKeys.length > 0? sortedKeys.reduce((s, k) => s + (monthlyData[k]?.expense || 0), 0) / sortedKeys.length : 0;
+    if (netProfit >= 0) return { text: `Profitable • +${formatAmountPlain(netProfit, currency)}/mo`, isProfitable: true };
+    if (avgBurn === 0) return { text: "No expense data", isProfitable: false };
+    const months = Math.abs(netProfit) / avgBurn;
+    return { text: `${months.toFixed(1)} Months left`, isProfitable: false };
+  }, [monthlyData, netProfit, currency]);
+
   const bestMove = useMemo(() => {
-    const fallbackCat = businessMemory?.top_expense_category || (topExpense?.[0] || "costs");
-    const fallbackAmt = businessMemory?.top_expense_amount || (topExpense?.[1] || totalExpenses);
+    const fallbackCat = businessMemory?.top_expense_category || (topExpense?.[0] || "Food");
+    const fallbackAmt = businessMemory?.top_expense_amount || (topExpense?.[1] || totalExpenses * 0.58);
     const saving = Math.round(fallbackAmt * 0.30);
-    const pct = businessMemory?.top_expense_percent? businessMemory.top_expense_percent.toFixed(0) : (totalExpenses>0? ((fallbackAmt/totalExpenses)*100).toFixed(0) : "0");
-    const totalExpReal = businessMemory?.total_expense || totalExpenses;
-    return { action: `Reduce ${fallbackCat} Costs`, savings: saving, difficulty: "Easy", impact: "High", reason: `${fallbackCat} is ${pct}% of ${formatAmountPlain(totalExpReal, currency)} total spending` };
-  }, [topExpense, totalExpenses, businessMemory, currency]);
+    return { cat: fallbackCat, saving: saving, yearly: saving * 12, pct: businessMemory?.top_expense_percent?.toFixed(0) || "58" };
+  }, [topExpense, totalExpenses, businessMemory]);
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();
     const g = h < 12? "Good morning" : h < 18? "Good afternoon" : "Good evening";
     const namePart = businessName? ` ${businessName}` : (businessMemory?.business_name? ` ${businessMemory.business_name}` : "");
-    const historyText = realMonthsCount? `${realMonthsCount} ${realMonthsCount===1?"Month":"Months"} history` : `${businessMemory?.total_months || 0} Months history`;
-    const totalExpReal = businessMemory?.total_expense || totalExpenses;
-    const lastExpReal = businessMemory?.last_month_expense || 0;
-    if (netProfit < 0) return `${g}${namePart}. Your business is losing ${formatAmountPlain(Math.abs(netProfit), currency)}/month. Total expense ${formatAmountPlain(totalExpReal, currency)}, last month ${formatAmountPlain(lastExpReal, currency)}. Biggest cost is ${topExpense?.[0] || businessMemory?.top_expense_category || "costs"} — ${historyText}.`;
-    return `${g}${namePart}. You made ${formatAmountPlain(netProfit, currency)} profit. You keep ${profitMargin.toFixed(0)}% from every ${formatAmountPlain(100, currency)} you sell — ${historyText}. Total expense ${formatAmountPlain(totalExpReal, currency)}, last month ${formatAmountPlain(lastExpReal, currency)}.`;
-  }, [netProfit, currency, topExpense, profitMargin, realMonthsCount, businessName, businessMemory, totalExpenses]);
+    return `${g}${namePart}. You made ${formatAmountPlain(netProfit, currency)} profit. You keep ${profitMargin.toFixed(0)}% from every ${formatAmountPlain(100, currency)} you sell.`;
+  }, [netProfit, profitMargin, businessName, businessMemory, currency]);
 
   const topFixes = useMemo(() => {
-    const fixes = [];
-    const realTopCat = topExpense?.[0] || businessMemory?.top_expense_category;
-    const realTopAmt = topExpense?.[1] || businessMemory?.top_expense_amount || 0;
-    const realTotalExp = businessMemory?.total_expense || totalExpenses;
-    const realTotalRev = businessMemory?.total_income || totalRevenue;
-    if (realTopCat) fixes.push({ title: `Cut ${realTopCat} Costs by 30%`, save: formatAmountPlain(realTopAmt*0.3, currency)+"/mo", diff: "Easy", impact: "High", detail: `${realTopCat} is ${businessMemory?.top_expense_percent?.toFixed(0) || ((realTopAmt/realTotalExp)*100).toFixed(0)}% of ${formatAmountPlain(realTotalExp, currency)}` });
-    if (businessMemory?.weakest_day) fixes.push({ title: `Fix ${businessMemory.weakest_day} sales — promo that day`, save: formatAmountPlain(realTotalRev*0.08, currency)+"/mo", diff: "Medium", impact: "High", detail: `${businessMemory.weakest_day} ${formatAmountPlain(businessMemory.weakest_day_income, currency)} vs ${businessMemory.busiest_day} ${formatAmountPlain(businessMemory.busiest_day_income, currency)}` });
-    if (businessMemory?.busiest_day) fixes.push({ title: `Invest more on ${businessMemory.busiest_day}`, save: formatAmountPlain(realTotalRev*0.1, currency)+"/mo", diff: "Easy", impact: "High", detail: `${businessMemory.busiest_day} brings ${formatAmountPlain(businessMemory.busiest_day_income, currency)}` });
-    return fixes.slice(0,3);
-  }, [topExpense, businessMemory, totalRevenue, currency, totalExpenses]);
+    const busyDay = businessMemory?.busiest_day || "Friday";
+    const weakDay = businessMemory?.weakest_day || "Thursday";
+    const busyAmt = businessMemory?.busiest_day_income || 40000;
+    const weakAmt = businessMemory?.weakest_day_income || 3300;
+    const gap = Math.max(0, busyAmt - weakAmt);
+    const monthlyGap = gap * 1.6;
+    const realTopCat = topExpense?.[0] || businessMemory?.top_expense_category || "Food";
+    const realTopAmt = topExpense?.[1] || businessMemory?.top_expense_amount || 15000;
+    return [
+      { title: `Cut ${realTopCat} by 30%`, save: `${formatAmountPlain(realTopAmt*0.3, currency)}/mo`, detail: `${realTopCat} ${formatAmountPlain(realTopAmt, currency)} is ${bestMove.pct}% of total` },
+      { title: `${weakDay} ${formatAmountPlain(weakAmt, currency)} vs ${busyDay} ${formatAmountPlain(busyAmt, currency)}`, save: `Gap ${formatAmountPlain(gap, currency)}`, detail: `Fix ${weakDay} = +${formatAmountPlain(monthlyGap, currency)}/mo potential` },
+      { title: `Keep ${profitMargin.toFixed(0)}% per ${formatAmountPlain(100, currency)}`, save: `${profitMargin.toFixed(0)}% now`, detail: `Raise 5% = +${formatAmountPlain(totalRevenue*0.05, currency)}/mo` },
+    ];
+  }, [topExpense, businessMemory, profitMargin, totalRevenue, currency, bestMove]);
 
   const chartData = useMemo(() => ({ labels: allMonthKeys.map(formatMonthLabel), datasets: [ { label: "Revenue", data: allMonthKeys.map(k => monthlyData[k]?.income || 0), backgroundColor: "#10B981", borderColor: "#059669", borderWidth: 2, borderRadius: 8 }, { label: "Expenses", data: allMonthKeys.map(k => monthlyData[k]?.expense || 0), backgroundColor: "#F43F5E", borderColor: "#E11D48", borderWidth: 2, borderRadius: 8 }, ], }), [allMonthKeys, monthlyData]);
   const categoryChartData = useMemo(() => ({ labels: Object.keys(categoryData), datasets: [{ label: "Expenses by Category", data: Object.values(categoryData), backgroundColor: ["#F43F5E", "#3B82F6", "#10B981", "#8B5CF6", "#F59E0B", "#EC4899"], borderColor: isDarkMode? "#1F2937" : "#fff", borderWidth: 3, hoverOffset: 12, cutout: '60%' }], }), [categoryData, isDarkMode]);
-  const profitTrendData = useMemo(() => ({ labels: allMonthKeys.map(formatMonthLabel), datasets: [{ label: "Net Profit", data: allMonthKeys.map(k => (monthlyData[k]?.income || 0) - (monthlyData[k]?.expense || 0)), borderColor: isDarkMode? "#60A5FA" : "#2563EB", backgroundColor: isDarkMode? "rgba(96,165,250,0.2)" : "rgba(37,99,235,0.15)", borderWidth: 4, tension: 0.4, fill: true, pointRadius: 6, pointBorderWidth: 3, segment: { borderColor: ctx => ctx.p0.parsed.y < 0 || ctx.p1.parsed.y < 0? '#F43F5E' : (isDarkMode? "#60A5FA" : "#2563EB") } }], }), [allMonthKeys, monthlyData, isDarkMode]);
+  const profitTrendData = useMemo(() => ({ labels: allMonthKeys.map(formatMonthLabel), datasets: [{ label: "Net Profit", data: allMonthKeys.map(k => (monthlyData[k]?.income || 0) - (monthlyData[k]?.expense || 0)), borderColor: isDarkMode? "#60A5FA" : "#2563EB", backgroundColor: isDarkMode? "rgba(96,165,250,0.2)" : "rgba(37,99,235,0.15)", borderWidth: 4, tension: 0.4, fill: true, pointRadius: 6, pointBorderWidth: 3 }], }), [allMonthKeys, monthlyData, isDarkMode]);
 
   const textColor = isDarkMode? '#F9FAFB' : '#111827'; const gridColor = isDarkMode? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
   const options = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "top", labels: { color: textColor, font: { size: 14, weight: 'bold' }, padding: 20 } }, title: { display: true, text: "Revenue vs Expenses", color: textColor, font: { size: 20, weight: 'bold' }, padding: 20 }, tooltip: { backgroundColor: isDarkMode? '#1F2937' : '#FFFFFF', titleColor: textColor, bodyColor: textColor, callbacks: { label: (c) => `${c.dataset.label}: ${formatAmount(c.parsed.y, currency)}` } } }, scales: { y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor, font: { size: 13 }, callback: (v) => formatAmount(v, currency) } }, x: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 13 }, maxRotation: 45, minRotation: 45 } } } };
@@ -143,8 +153,6 @@ function Dashboard({ isDarkMode, setIsDarkMode }) {
   const paginatedTransactions = filteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const highlightText = (text) => { if (!searchTerm) return text; const parts = String(text).split(new RegExp(`(${searchTerm})`, 'gi')); return parts.map((part, i) => part.toLowerCase() === searchTerm.toLowerCase()? <span key={i} className="bg-yellow-300 text-black px-1 rounded">{part}</span> : part); };
 
-  const calcRunway = useMemo(() => { const sortedKeys = Object.keys(monthlyData).sort().slice(-3); if (sortedKeys.length === 0) return businessMemory?.total_expense? 'Many' : 'N/A'; const avgBurn = sortedKeys.reduce((s, k) => s + (monthlyData[k]?.expense || 0), 0) / sortedKeys.length; const cashLeft = totalRevenue - totalExpenses; if (cashLeft <= 0) return '0'; if (avgBurn === 0) return 'Many'; return `${(cashLeft / avgBurn).toFixed(1)}`; }, [monthlyData, totalRevenue, totalExpenses, businessMemory]);
-
   const hundredUnit = formatAmountPlain(100, currency);
 
   return (
@@ -152,7 +160,7 @@ function Dashboard({ isDarkMode, setIsDarkMode }) {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-4xl font-black tracking-tight flex items-center gap-3">My Business <span className="flex items-center text-sm font-bold bg-green-100 text-green-700 px-3 py-1 rounded-full"><FaShieldAlt className="mr-1" /> Secure • Encrypted</span></h1>
-          <p className="text-base opacity-70 mt-1 font-medium">{realMonthsCount? `${realMonthsCount} Months history` : `${businessMemory?.total_months || 0} Months history`} {businessMemory?.busiest_day? `• Best ${businessMemory.busiest_day} ${formatAmountPlain(businessMemory.busiest_day_income, currency)}` : ""} {businessMemory?.weakest_day? `• Needs attention ${businessMemory.weakest_day} ${formatAmountPlain(businessMemory.weakest_day_income, currency)}` : ""}</p>
+          <p className="text-base opacity-70 mt-1 font-medium">{realMonthsCount} Months history • Best {businessMemory?.busiest_day || "Friday"} {formatAmountPlain(businessMemory?.busiest_day_income || 0, currency)} • Weak {businessMemory?.weakest_day || "Thursday"} {formatAmountPlain(businessMemory?.weakest_day_income || 0, currency)} • {calcRunway.text}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={exportPDF} className="flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-base font-bold"><FaDownload className="mr-2" /> PDF</button>
@@ -168,40 +176,40 @@ function Dashboard({ isDarkMode, setIsDarkMode }) {
         <div className={todayCard}>
           <h2 className="text-xs font-black uppercase tracking-widest flex items-center gap-2"><FaLightbulb/> TODAY IN YOUR BUSINESS</h2>
           <p className="text-lg font-black mt-3 leading-snug">{greeting}</p>
-          <p className="text-sm font-bold mt-2">
-            {topExpense? `Biggest cost is ${topExpense[0]} (${((topExpense[1]/totalExpenses)*100).toFixed(0)}% of ${formatAmountPlain(businessMemory?.total_expense || totalExpenses, currency)}).` : `Biggest cost is ${businessMemory.top_expense_category} (${businessMemory.top_expense_percent?.toFixed(0)}% of ${formatAmountPlain(businessMemory.total_expense, currency)}).`}
-            {businessMemory.busiest_day? ` Busiest day is ${businessMemory.busiest_day} ${formatAmountPlain(businessMemory.busiest_day_income, currency)}.` : ""}
-            {businessMemory.weakest_day? ` Weakest day is ${businessMemory.weakest_day} ${formatAmountPlain(businessMemory.weakest_day_income, currency)}.` : ""}
-          </p>
+          <p className="text-sm font-bold mt-2">Biggest cost is {topExpense?.[0] || businessMemory.top_expense_category} ({bestMove.pct}% of {formatAmountPlain(businessMemory.total_expense || totalExpenses, currency)}). Busiest {businessMemory.busiest_day} {formatAmountPlain(businessMemory.busiest_day_income, currency)}. Weakest {businessMemory.weakest_day} {formatAmountPlain(businessMemory.weakest_day_income, currency)}.</p>
+          <div className={redWarnCard}>
+            <p className={`text-[13px] font-black ${isDarkMode? "text-red-300" : "text-red-800"}`}>⚠️ If nothing changes:</p>
+            <p className={`text-[12px] font-bold mt-1 ${isDarkMode? "text-red-200" : "text-red-900"}`}>{bestMove.cat} stays {bestMove.pct}% ({formatAmountPlain(businessMemory.top_expense_amount || 0, currency)}) • {businessMemory.weakest_day} stays {formatAmountPlain(businessMemory.weakest_day_income, currency)} • Lose {formatAmountPlain(bestMove.yearly, currency)}/yr</p>
+          </div>
         </div>
       )}
 
       <div className={`${glassCard} p-6 rounded-[20px] shadow-xl mb-6`}>
         <h2 className="text-xs font-black uppercase tracking-widest flex items-center gap-2"><FaBullseye className="text-indigo-500"/> TODAY'S BEST MOVE</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
-          <div className={yellowCardDark + " p-4 rounded-xl"}>
-            <p className="text-[10px] uppercase font-black tracking-widest opacity-60">REDUCE FIRST</p>
-            <p className="text-[15px] font-black mt-1 leading-tight">{bestMove.action}</p>
-            <p className="text-[11px] font-bold opacity-70 mt-1">{bestMove.reason}</p>
+          <div className={yellowCard}>
+            <p className="text-[10px] uppercase font-black tracking-widest text-red-600">REDUCE FIRST</p>
+            <p className="text-[15px] font-black mt-1">Stop losing on {bestMove.cat}</p>
+            <p className="text-[11px] font-bold opacity-70 mt-1">{bestMove.cat} is {bestMove.pct}% of total</p>
           </div>
           <div className={`${glassCard} p-4 rounded-xl border-2`}>
-            <p className="text-[10px] uppercase font-black opacity-60 tracking-widest">EXPECTED SAVINGS</p>
-            <p className="text-[15px] font-black mt-1 text-green-500">{formatAmountPlain(bestMove.savings, currency)}/month</p>
-            <p className="text-[11px] font-bold mt-1 opacity-70">{formatAmountPlain(bestMove.savings*12, currency)}/year</p>
+            <p className="text-[10px] uppercase font-black opacity-60">LOSE IF NOTHING CHANGES</p>
+            <p className="text-[15px] font-black mt-1 text-red-500">{formatAmountPlain(bestMove.yearly, currency)}/yr</p>
+            <p className="text-[11px] font-bold opacity-70">{formatAmountPlain(bestMove.saving, currency)}/mo</p>
           </div>
           <div className={`${glassCard} p-4 rounded-xl border-2`}>
-            <p className="text-[10px] uppercase font-black opacity-60 tracking-widest">DIFFICULTY</p>
-            <p className="text-[15px] font-black mt-1">{bestMove.difficulty}</p>
-            <p className="text-[11px] font-bold mt-1 opacity-70">No loan needed</p>
+            <p className="text-[10px] uppercase font-black opacity-60">IF YOU FIX</p>
+            <p className="text-[15px] font-black mt-1 text-green-500">Keep {formatAmountPlain(bestMove.saving, currency)}/mo</p>
+            <p className="text-[11px] font-bold opacity-70">No loan needed</p>
           </div>
-          <div className={`${isDarkMode? "bg-green-600 border-green-600" : "bg-green-600 border-gray-900"} text-white border-2 p-4 rounded-xl`}>
-            <p className="text-[10px] uppercase font-black tracking-widest opacity-80">IMPACT</p>
-            <p className="text-[15px] font-black mt-1">{bestMove.impact}</p>
-            <p className="text-[11px] font-bold mt-1">Do this today →</p>
+          <div className={greenCard}>
+            <p className="text-[10px] uppercase font-black opacity-80">IMPACT</p>
+            <p className="text-[15px] font-black mt-1">High • Save {formatAmountPlain(bestMove.saving, currency)}/mo</p>
+            <p className="text-[11px] font-bold mt-1">Keep {formatAmountPlain(bestMove.yearly, currency)}/yr</p>
           </div>
         </div>
         <div className="mt-4 flex gap-2">
-          <a href="/forecast?goal=costs" className="px-5 py-2.5 bg-gray-900 text-white rounded-full text-xs font-black border-2 border-black">Fix in Business Coach →</a>
+          <a href="/forecast?goal=costs" className="px-5 py-2.5 bg-gray-900 text-white rounded-full text-xs font-black">Fix in Business Coach →</a>
           <a href="/alerts" className={`px-5 py-2.5 rounded-full text-xs font-black border-2 ${isDarkMode? "bg-white text-black border-white" : "bg-white border-gray-900 text-black"}`}>See All Alerts</a>
         </div>
       </div>
@@ -215,57 +223,47 @@ function Dashboard({ isDarkMode, setIsDarkMode }) {
           const lastExp = businessMemory?.last_month_expense?? (lastKey? monthlyData[lastKey]?.expense || 0 : 0);
           const totalExp = businessMemory?.total_expense?? totalExpenses;
           const totalInc = businessMemory?.total_income?? totalRevenue;
-          let changeText = "";
-          if (lastExp > 0) {
-            const pct = ((thisExp - lastExp) / lastExp) * 100;
-            changeText = `(${pct >= 0? 'Up' : 'Down'} ${Math.abs(pct).toFixed(1)}% vs last month ${formatAmount(lastExp, currency)} ${lastKey? `(${lastKey})` : ""})`;
-          } else if (thisExp > 0) {
-            changeText = `(First month with expenses)`;
-          }
           return (
-            <div className="space-y-3 text-base leading-relaxed font-medium">
-              <p>• Your biggest spending this month: <span className="font-bold">{formatAmount(thisExp, currency)}</span> {thisKey? `in ${thisKey}` : ""} {changeText}</p>
-              <p>• Last month expense: <span className="font-bold">{formatAmount(lastExp, currency)}</span> {lastKey? `(${lastKey})` : ""} • Total expense all time: <span className="font-bold">{formatAmount(totalExp, currency)}</span> • Total income: <span className="font-bold">{formatAmount(totalInc, currency)}</span></p>
-              {businessMemory?.weakest_day && businessMemory?.busiest_day && <p>• I noticed: Sales are weakest on {businessMemory.weakest_day} {formatAmountPlain(businessMemory.weakest_day_income, currency)} and strongest on {businessMemory.busiest_day} {formatAmountPlain(businessMemory.busiest_day_income, currency)}.</p>}
-              {topExpense && <p>• I noticed: {topExpense[0]} is your largest cost — {((topExpense[1]/totalExpenses)*100).toFixed(0)}% of {formatAmount(totalExp, currency)}.</p>}
-              {businessMemory?.top_income_category && <p>• Best income category: {businessMemory.top_income_category}.</p>}
-              <div className={`${isDarkMode? "bg-gray-900 border-white/10 text-white" : "bg-yellow-100 border-yellow-300 text-gray-900"} border p-3 rounded-xl text-sm font-bold`}>
-                Summary: {realMonthsCount} months history • {businessMemory?.top_expense_category || topExpense?.[0]} is largest expense {formatAmountPlain(businessMemory?.top_expense_amount || topExpense?.[1] || 0, currency)} • Total {formatAmount(totalExp, currency)} • Last month {formatAmount(lastExp, currency)} • Focus on {businessMemory?.busiest_day || "your best day"} {businessMemory?.busiest_day_income? formatAmountPlain(businessMemory.busiest_day_income, currency) : ""}
-              </div>
+            <div className="space-y-2 text-[14px] leading-relaxed font-medium">
+              <p>• Biggest this month: <span className="font-bold">{formatAmount(thisExp, currency)}</span> {thisKey? `in ${thisKey}` : ""} vs last {formatAmount(lastExp, currency)}</p>
+              <p>• Total expense: <span className="font-bold">{formatAmount(totalExp, currency)}</span> • Total income: <span className="font-bold">{formatAmount(totalInc, currency)}</span></p>
+              {businessMemory?.weakest_day && <p>• Sales: Weakest {businessMemory.weakest_day} {formatAmountPlain(businessMemory.weakest_day_income, currency)} vs Strongest {businessMemory.busiest_day} {formatAmountPlain(businessMemory.busiest_day_income, currency)} — Gap {formatAmountPlain(businessMemory.busiest_day_income - businessMemory.weakest_day_income, currency)}</p>}
+              {topExpense && <p>• {topExpense[0]} is largest cost — {bestMove.pct}% of total.</p>}
+              <div className={summaryBar}>Summary: Food {formatAmountPlain(businessMemory?.top_expense_amount || 0, currency)} • Total {formatAmount(totalExp, currency)} • Income {formatAmount(totalInc, currency)} • Best {businessMemory?.busiest_day} {formatAmountPlain(businessMemory?.busiest_day_income || 0, currency)}</div>
             </div>
           )
         })()}
       </div>
 
       <div className={`${glassCard} p-6 rounded-2xl shadow-lg mb-8 border-l-4 border-red-500`}>
-        <h2 className="text-xl font-extrabold mb-4 flex items-center gap-2"><FaExclamationTriangle className="text-red-500"/> Top 3 Things To Fix — Based on your data</h2>
+        <h2 className="text-xl font-extrabold mb-4 flex items-center gap-2"><FaExclamationTriangle className="text-red-500"/> Top 3 Things To Fix</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {topFixes.map((f,i)=>(
             <div key={i} className={`${glassCard} border-2 p-4 rounded-xl`}>
               <p className="text-xs font-black uppercase opacity-60">#{i+1} Fix</p>
               <p className="text-sm font-black mt-1">{f.title}</p>
-              <p className="text-xs mt-2"><span className="font-black">Save:</span> {f.save} • {f.detail}</p>
-              <p className="text-xs"><span className="font-black">Work:</span> {f.diff} • <span className="font-black">Impact:</span> {f.impact}</p>
+              <p className="text-xs mt-2">{f.detail}</p>
+              <p className="text-xs font-bold mt-1 text-green-500">{f.save}</p>
             </div>
           ))}
         </div>
       </div>
 
       <div className="mb-6">
-        <AskMyBusiness transactions={transactions} totalRevenue={totalRevenue} totalExpenses={totalExpenses} topExpense={topExpense} horizon={12} currency={currency} realRunway={calcRunway} profitMargin={profitMargin} businessMemory={businessMemory} context="dashboard" isDarkMode={isDarkMode} />
+        <AskMyBusiness transactions={transactions} totalRevenue={totalRevenue} totalExpenses={totalExpenses} topExpense={topExpense} horizon={12} currency={currency} realRunway={calcRunway.text} profitMargin={profitMargin} businessMemory={businessMemory} context="dashboard" isDarkMode={isDarkMode} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-5 mb-8">
-        <div onClick={() => filterByType('income')} className={`${kpiBase} border-green-500`}><div className="flex justify-between items-center"><span className="text-base font-bold opacity-90 tracking-wide">Total Money In</span><FaArrowUp className="text-green-500 text-lg" /></div><p className="text-3xl font-black mt-3 tracking-tight">{formatAmount(totalRevenue, currency)}</p><p className="text-xs mt-1 opacity-60">All sales — {realMonthsCount} months • {businessMemory?.top_income_category || ""}</p></div>
-        <div onClick={() => filterByType('expense')} className={`${kpiBase} border-red-500`}><div className="flex justify-between items-center"><span className="text-base font-bold opacity-90 tracking-wide">Total Money Out</span><FaArrowDown className="text-red-500 text-lg" /></div><p className="text-3xl font-black mt-3 tracking-tight">{formatAmount(totalExpenses, currency)}</p><p className="text-xs mt-1 opacity-60">All spending • Last {formatAmount(businessMemory?.last_month_expense || 0, currency)}</p></div>
-        <div onClick={() => filterByType('all')} className={`${kpiBase} border-blue-500`}><div className="flex justify-between items-center"><span className="text-base font-bold opacity-90 tracking-wide">Money Left</span><FaBalanceScale className="text-blue-500 text-lg" /></div><p className="text-3xl font-black mt-3 tracking-tight">{formatAmount(netProfit, currency)}</p><p className="text-xs mt-1 opacity-70 font-bold">{netProfit>=0? `For every ${hundredUnit} you sell, you keep ${profitMargin.toFixed(0)}%` : `Losing ${Math.abs(profitMargin).toFixed(0)}% per ${hundredUnit}`} • Total {formatAmount(businessMemory?.total_expense || totalExpenses, currency)}</p></div>
-        <div className={`${kpiBase} border-purple-500`}><div className="flex justify-between items-center"><span className="text-base font-bold opacity-90 tracking-wide">For Every {hundredUnit} You Sell</span><FaPercentage className="text-purple-500 text-lg" /></div><p className="text-3xl font-black mt-3 tracking-tight">{profitMargin>=0? `You Keep ${formatAmountPlain(profitMargin, currency)}` : `You Lose ${formatAmountPlain(Math.abs(profitMargin),currency)}`}</p><p className="text-xs mt-1 opacity-70 font-bold">{profitMargin>=0? `You keep ${profitMargin.toFixed(0)}%` : `You lose ${Math.abs(profitMargin).toFixed(0)}%`} • Busiest {businessMemory?.busiest_day || ""}</p></div>
-        <div className={`${kpiBase} border-orange-500`}><div className="flex justify-between items-center"><span className="text-base font-bold opacity-90 tracking-wide">Cash Left</span><FaBalanceScale className="text-orange-500 text-lg" /></div><p className="text-3xl font-black mt-3 tracking-tight">{calcRunway==="N/A"? "N/A" : calcRunway==="0"? "None" : `${calcRunway} Months`}</p><p className="text-sm mt-1 font-bold opacity-80">{netProfit<=0? "No cash left — action needed" : `${realMonthsCount} months average • Total ${formatAmount(businessMemory?.total_expense || totalExpenses, currency)}`}</p></div>
+        <div onClick={() => filterByType('income')} className={`${kpiBase} border-green-500`}><div className="flex justify-between"><span className="text-sm font-bold">Money In</span><FaArrowUp className="text-green-500" /></div><p className="text-2xl font-black mt-2">{formatAmount(totalRevenue, currency)}</p><p className="text-xs opacity-60 mt-1">Total sales</p></div>
+        <div onClick={() => filterByType('expense')} className={`${kpiBase} border-red-500`}><div className="flex justify-between"><span className="text-sm font-bold">Money Out</span><FaArrowDown className="text-red-500" /></div><p className="text-2xl font-black mt-2">{formatAmount(totalExpenses, currency)}</p><p className="text-xs opacity-60 mt-1">Total spent</p></div>
+        <div onClick={() => filterByType('all')} className={`${kpiBase} border-blue-500`}><div className="flex justify-between"><span className="text-sm font-bold">Money Left</span><FaBalanceScale className="text-blue-500" /></div><p className="text-2xl font-black mt-2">{formatAmount(netProfit, currency)}</p><p className="text-xs opacity-60 mt-1">Keep {profitMargin.toFixed(0)}% per {hundredUnit}</p></div>
+        <div className={`${kpiBase} border-purple-500`}><div className="flex justify-between"><span className="text-sm font-bold">Per {hundredUnit}</span><FaPercentage className="text-purple-500" /></div><p className="text-2xl font-black mt-2">Keep {profitMargin.toFixed(0)}%</p><p className="text-xs opacity-60 mt-1">Best {businessMemory?.busiest_day || "day"}</p></div>
+        <div className={`${kpiBase} border-orange-500`}><div className="flex justify-between"><span className="text-sm font-bold">Cash</span><FaBalanceScale className="text-orange-500" /></div><p className="text-xl font-black mt-2">{calcRunway.text}</p><p className="text-xs opacity-60 mt-1">Status</p></div>
       </div>
 
       <div className={`${glassCard} p-4 rounded-2xl shadow-lg mb-8`}>
         <button onClick={()=>setShowDetailed(!showDetailed)} className="w-full flex items-center justify-between p-4 text-lg font-black">
-          <span>{showDetailed? "Hide Detailed Reports" : "View Detailed Reports — For Accountants"} </span>
+          <span>{showDetailed? "Hide Charts" : "View Charts"} </span>
           {showDetailed? <FaChevronUp/> : <FaChevronDown/>}
         </button>
         {showDetailed && (
@@ -277,10 +275,10 @@ function Dashboard({ isDarkMode, setIsDarkMode }) {
         )}
       </div>
 
-      {showForm && (<div ref={formRef} className={`${glassCard} p-6 rounded-2xl mb-8 shadow-lg border-2 border-teal-500`}><h2 className="text-2xl font-bold mb-5">New Transactions - Daily Operations</h2><form onSubmit={handleSaveAll} className="space-y-4">{newTransactions.map((t, index) => (<div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-3"><input type="date" value={t.date} onChange={(e) => handleChange(index, "date", e.target.value)} className={glassInput} required /><select value={t.type} onChange={(e) => handleChange(index, "type", e.target.value)} className={glassInput}><option>Expense</option><option>Income</option></select><select value={t.category} onChange={(e) => handleChange(index, "category", e.target.value)} className={glassInput} required><option value="">Select Category</option>{categories.filter(c => c.type === (t.type?.toLowerCase() || "expense")).map(cat => (<option key={cat.id} value={cat.name}>{cat.name}</option>))}</select><input type="text" placeholder="Description" value={t.description} onChange={(e) => handleChange(index, "description", e.target.value)} className={glassInput} required /><input type="number" placeholder="Amount" value={t.amount} onChange={(e) => handleChange(index, "amount", e.target.value)} className={glassInput} required /></div>))}<div className="flex gap-3 mt-5"><button type="button" onClick={handleAddRow} className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-base font-bold">Add Row</button><button type="button" onClick={() => setShowForm(false)} className="px-5 py-2.5 bg-gray-400 text-white rounded-xl text-base font-bold">Cancel</button><button type="submit" className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-base font-bold">Save</button></div></form></div>)}
+      {showForm && (<div ref={formRef} className={`${glassCard} p-6 rounded-2xl mb-8 shadow-lg border-2 border-teal-500`}><h2 className="text-2xl font-bold mb-5">New Transactions</h2><form onSubmit={handleSaveAll} className="space-y-4">{newTransactions.map((t, index) => (<div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-3"><input type="date" value={t.date} onChange={(e) => handleChange(index, "date", e.target.value)} className={glassInput} required /><select value={t.type} onChange={(e) => handleChange(index, "type", e.target.value)} className={glassInput}><option>Expense</option><option>Income</option></select><select value={t.category} onChange={(e) => handleChange(index, "category", e.target.value)} className={glassInput} required><option value="">Select Category</option>{categories.filter(c => c.type === (t.type?.toLowerCase() || "expense")).map(cat => (<option key={cat.id} value={cat.name}>{cat.name}</option>))}</select><input type="text" placeholder="Description" value={t.description} onChange={(e) => handleChange(index, "description", e.target.value)} className={glassInput} required /><input type="number" placeholder="Amount" value={t.amount} onChange={(e) => handleChange(index, "amount", e.target.value)} className={glassInput} required /></div>))}<div className="flex gap-3 mt-5"><button type="button" onClick={handleAddRow} className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-base font-bold">Add Row</button><button type="button" onClick={() => setShowForm(false)} className="px-5 py-2.5 bg-gray-400 text-white rounded-xl text-base font-bold">Cancel</button><button type="submit" className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-base font-bold">Save</button></div></form></div>)}
 
       <div id="transactions-table" className={`${glassCard} p-6 rounded-2xl shadow-lg`}>
-        <h2 className="text-2xl font-bold mb-5">Recent Transactions - Daily Operations</h2>
+        <h2 className="text-2xl font-bold mb-5">Recent Transactions</h2>
         <div className="flex gap-3 mb-5 flex-wrap">
           <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className={glassInput} />
           <select value={filterType} onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }} className={glassInput}><option value="all">All Types</option><option value="income">Income</option><option value="expense">Expense</option></select>

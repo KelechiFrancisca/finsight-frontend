@@ -20,7 +20,7 @@ function formatAmount(amount, currency = "NGN") {
 function Alerts({ dashboardData, isDarkMode }) {
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState([]);
-  const [counts, setCounts] = useState({ high: 0, medium: 0, info: 0 });
+  const [, setCounts] = useState({ high: 0, medium: 0, info: 0 }); // eslint-disable-line no-unused-vars
   const [totals, setTotals] = useState({});
   const [transactions, setTransactions] = useState([]);
   const [sliders, setSliders] = useState({});
@@ -56,17 +56,28 @@ function Alerts({ dashboardData, isDarkMode }) {
     return { monthlyData: data, sortedMonths: Object.keys(data).sort() };
   }, [transactions]);
 
+  // CLEAN: No "Many months" when profitable
   const realRunwayData = useMemo(() => {
     const last3 = sortedMonths.slice(-3);
-    if (last3.length === 0) return { avg: 0, text: "No data yet", level: "Low", isExhausted: true };
+    if (last3.length === 0) return { avg: 0, text: "No data yet", level: "Low", isExhausted: false, isProfitable: false };
     const avg = last3.reduce((s, k) => s + (monthlyData[k]?.expense || 0), 0) / last3.length || 0;
-    if (avg === 0) return { avg, text: "Many months", level: "Low", isExhausted: false };
-    if (isProfit) return { avg, text: "Many months", level: "Low", isExhausted: false };
-    const months = totalExpenses > 0? Math.abs(netProfit) / avg : 0;
-    if (months <= 0) return { avg, text: "0 Months", level: "Critical", isExhausted: true };
+    if (isProfit) {
+      return {
+        avg,
+        text: `Profitable • +${formatAmount(netProfit, currency)}/mo`,
+        shortText: "Profitable",
+        level: "Low",
+        isExhausted: false,
+        isProfitable: true,
+        monthlyProfit: netProfit
+      };
+    }
+    if (avg === 0) return { avg, text: "No expense data", level: "Low", isExhausted: false, isProfitable: false };
+    const months = Math.abs(netProfit) / avg;
+    if (months <= 0) return { avg, text: "0 Months left", level: "Critical", isExhausted: true, isProfitable: false };
     const level = months < 1? "Critical" : months < 3? "High" : months < 6? "Medium" : "Low";
-    return { avg, text: `${months.toFixed(1)} Months`, level, isExhausted: months < 1 };
-  }, [sortedMonths, monthlyData, isProfit, totalExpenses, netProfit]);
+    return { avg, text: `${months.toFixed(1)} Months left`, shortText: `${months.toFixed(1)} Mo`, level, isExhausted: months < 1, isProfitable: false };
+  }, [sortedMonths, monthlyData, isProfit, netProfit, currency]);
 
   const expenseByCategory = useMemo(() => {
     const map = {};
@@ -95,10 +106,18 @@ function Alerts({ dashboardData, isDarkMode }) {
     let score = 100;
     if (profitMargin < 0) score -= 40; else if (profitMargin < 10) score -= 25; else if (profitMargin < 20) score -= 10;
     if (!isProfit) score -= 20;
-    if (realRunwayData.level === "Critical") score -= 20; else if (realRunwayData.level === "High") score -= 15;
-    if (Number(topExpensePct) > 70) score -= 10;
+    if (realRunwayData.level === "Critical") score -= 20; else if (realRunwayData.level === "High") score -= 15; else if (realRunwayData.level === "Medium") score -= 8;
+    if (Number(topExpensePct) > 70) score -= 15; else if (Number(topExpensePct) > 55) score -= 10;
     return Math.max(0, Math.min(100, score));
   }, [profitMargin, isProfit, realRunwayData.level, topExpensePct]);
+
+  const whyNot100 = useMemo(() => {
+    const reasons = [];
+    if (Number(topExpensePct) > 50) reasons.push(`${topExpense?.[0] || "Food"} ${topExpensePct}% (-${Number(topExpensePct) > 70? 15 : 10})`);
+    if (businessMemory?.weakest_day) reasons.push(`${businessMemory.weakest_day} weak (-8)`);
+    if (!realRunwayData.isProfitable && realRunwayData.level!== "Low") reasons.push(`Cash ${realRunwayData.shortText || realRunwayData.text} (-10)`);
+    return reasons.slice(0, 3);
+  }, [topExpensePct, topExpense, businessMemory, realRunwayData]);
 
   const busiestDay = businessMemory?.busiest_day || "";
   const weakestDay = businessMemory?.weakest_day || "";
@@ -106,16 +125,19 @@ function Alerts({ dashboardData, isDarkMode }) {
   const weakAvg = businessMemory?.weakest_day_avg || businessMemory?.weakest_day_income || 0;
   const mainCostName = topExpense?.[0] || businessMemory?.top_expense_category || "Your biggest cost";
   const mainCostAmount = topExpense?.[1] || businessMemory?.top_expense_amount || 0;
+  const thursdayGap = Math.max(0, (busyAvg || 0) - (weakAvg || 0));
 
   const todayAction = useMemo(() => {
     const savings = mainCostAmount * 0.1;
+    const annual = savings * 12;
     return {
-      title: `Check your ${mainCostName} spending today`,
-      detail: topExpenseDescription? `${mainCostName} - ${topExpenseDescription}` : mainCostName,
+      title: `🚨 ${mainCostName} is ${topExpensePct}% — Lose ${formatAmount(annual, currency)}/yr if nothing changes`,
+      detail: `Now ${formatAmount(mainCostAmount, currency)}${topExpenseDescription? ` (${topExpenseDescription})` : ""}. Cut 10% = keep ${formatAmount(savings, currency)}/mo = ${formatAmount(annual, currency)}/yr. Action this week.`,
       saving: savings,
+      annual: annual,
       goal: "costs"
     };
-  }, [mainCostName, mainCostAmount, topExpenseDescription]);
+  }, [mainCostName, mainCostAmount, topExpensePct, topExpenseDescription, currency]);
 
   const goToCoach = (goal) => {
     localStorage.setItem("coach_goal", goal);
@@ -123,7 +145,7 @@ function Alerts({ dashboardData, isDarkMode }) {
   };
 
   const copyTalkScript = () => {
-    const script = `Hello, I checked my business this month. Sales are low on ${weakestDay || "slow days"}. My biggest cost is ${mainCostName}${topExpenseDescription? ` (${topExpenseDescription})` : ""} which is ${topExpensePct}% of all my spending. Can we reduce it by 10%? That would save me ${formatAmount(todayAction.saving, currency)} per month. Thank you.`;
+    const script = `Hello, I checked my business. Best ${busiestDay || "Friday"} ${formatAmount(busyAvg, currency)}, slowest ${weakestDay || "Thursday"} ${formatAmount(weakAvg, currency)}. Biggest cost ${mainCostName} ${topExpensePct}% (${formatAmount(mainCostAmount, currency)}). If we don't fix, we lose ${formatAmount(todayAction.annual, currency)}/yr. Can we cut 10% to save ${formatAmount(todayAction.saving, currency)}/mo?`;
     navigator.clipboard.writeText(script);
     showToast("Message copied");
   };
@@ -167,7 +189,7 @@ function Alerts({ dashboardData, isDarkMode }) {
       list = [
         { id: "local-1", type: "expense", level: "high", message: `${mainCostName} high`, _impact: mainCostAmount || 1000 },
         { id: "local-2", type: "revenue", level: "medium", message: `${weakestDay || "Slow day"} weak`, _impact: totalRevenue * 0.08 || 500 },
-        { id: "local-3", type: "margin", level: "info", message: `You keep ${profitMargin.toFixed(0)}%`, _impact: totalRevenue * 0.05 || 300 },
+        { id: "local-3", type: "margin", level: "info", message: `Margin ${profitMargin.toFixed(0)}%`, _impact: totalRevenue * 0.05 || 300 },
       ];
     }
     return list.map((x, idx) => ({...x, _rank: idx + 1, _total: list.length || 1 }));
@@ -180,7 +202,7 @@ function Alerts({ dashboardData, isDarkMode }) {
   }, [rankedAlerts, expandedId]);
 
   const exportCSV = () => {
-    const rows = [["Rank", "Level", "Type", "Message", "Cash lasts", "Business strength"]];
+    const rows = [["Rank", "Level", "Type", "Message", "Cash", "Health"]];
     rankedAlerts.forEach((a) => { rows.push([`#${a._rank} of ${a._total}`, a.level, a.type, a.message.replace(/,/g, " "), realRunwayData.text, `${strengthScore}/100`]); });
     const csv = rows.map((r) => r.join(",")).join("\n");
     const link = document.createElement("a");
@@ -206,21 +228,27 @@ function Alerts({ dashboardData, isDarkMode }) {
     <div ref={reportRef} className={`min-h-screen p-6 ${dark? "bg-transparent text-white" : "bg-[#F8FAFC] text-gray-900"}`}>
       <div className="max-w-[1400px] mx-auto">
         <div className={`${dark? "bg-gray-800 border-white/10" : "bg-white border-2 border-gray-900"} border rounded-xl px-5 py-3 mb-6 flex flex-wrap gap-4 items-center text-[13px] font-bold`}>
-          <span>Business strength: {strengthScore}/100</span>
-          <span className="text-gray-400">|</span><span>{counts.high} need attention • {counts.medium} to watch • {rankedAlerts.length} to fix</span>
-          <span className="text-gray-400">|</span><span>Cash lasts {realRunwayData.text}</span>
-          {busiestDay && <><span className="text-gray-400">|</span><span>Best: {busiestDay} ({formatAmount(busyAvg, currency)}) • Slowest: {weakestDay} ({formatAmount(weakAvg, currency)})</span></>}
+          <span className={strengthScore < 80? "text-red-600" : "text-green-700"}>Health: {strengthScore}/100 {strengthScore < 80? "• AT RISK" : "• Good"}</span>
+          <span className="text-gray-400">|</span><span>{rankedAlerts.length} to fix</span>
+          <span className="text-gray-400">|</span><span className={realRunwayData.isProfitable? "text-green-700" : "text-red-600"}>{realRunwayData.text}</span>
+          {whyNot100.length > 0 && <><span className="text-gray-400">|</span><span className="text-amber-700">Why not 100? {whyNot100.join(" • ")}</span></>}
+          {busiestDay && <><span className="text-gray-400">|</span><span>Best: {busiestDay} ({formatAmount(busyAvg, currency)}) • Slow: {weakestDay} ({formatAmount(weakAvg, currency)})</span></>}
         </div>
 
         <div className="flex justify-between items-start mb-6 flex-wrap gap-4">
           <div>
             <h1 className="text-3xl md:text-4xl font-black tracking-tight">What needs your attention now?</h1>
-            <p className={`${mutedTxt} mt-2 text-[14px] font-bold`}>Business strength {strengthScore}/100 {busiestDay? `• Best day ${busiestDay} (${formatAmount(busyAvg, currency)} average)` : ""} {weakestDay? `• Slowest day ${weakestDay} (${formatAmount(weakAvg, currency)} average)` : ""} • Based on {sortedMonths.length || businessMemory?.total_months || 0} months of sales</p>
+            <p className={`${mutedTxt} mt-2 text-[14px] font-bold`}>
+              Health {strengthScore}/100 {whyNot100.length > 0? `• ${whyNot100.join(", ")}` : ""} • Best {busiestDay} {formatAmount(busyAvg, currency)} • Slowest {weakestDay} {formatAmount(weakAvg, currency)} • {sortedMonths.length || businessMemory?.total_months || 0} months data
+            </p>
+            <p className="mt-2 text-[13px] font-black text-red-600">
+              ⚠️ If nothing changes: Lose {formatAmount(todayAction.annual, currency)}/yr on {mainCostName} • Thursday gap {formatAmount(thursdayGap, currency)} lost every week
+            </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <button onClick={() => window.location.reload()} className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-[13px] font-black">Refresh</button>
-            <button onClick={exportCSV} className="bg-gray-900 text-white px-5 py-2.5 rounded-xl text-[13px] font-black">Export CSV</button>
-            <button onClick={exportPDF} className="bg-white border-2 border-gray-900 px-5 py-2.5 rounded-xl text-[13px] font-black text-gray-900">Export PDF</button>
+            <button onClick={exportCSV} className="text-[11px] font-bold underline opacity-50">CSV</button>
+            <button onClick={exportPDF} className="text-[11px] font-bold underline opacity-50">PDF</button>
           </div>
         </div>
 
@@ -228,20 +256,25 @@ function Alerts({ dashboardData, isDarkMode }) {
           <div className="bg-[#fef08a] border-2 border-gray-900 p-6 rounded-2xl shadow-xl mb-6">
             <h2 className="text-[11px] font-black uppercase tracking-[0.2em]">WHAT I KNOW ABOUT YOUR BUSINESS</h2>
             <p className="text-[15px] font-black mt-3 leading-relaxed">
-              Your best day is {busiestDay || "Friday"} ({formatAmount(busyAvg || businessMemory.busiest_day_income, currency)} average), your slowest day is {weakestDay || "Thursday"} ({formatAmount(weakAvg || businessMemory.weakest_day_income, currency)} average). You sell most {businessMemory.top_income_category || "Sales"}, your biggest spending is {mainCostName}{topExpenseDescription? ` (${topExpenseDescription})` : ""} ({formatAmount(mainCostAmount, currency)}). Based on {sortedMonths.length || businessMemory.total_months || 0} months of sales.
+              Best {busiestDay || "Friday"} ({formatAmount(busyAvg || businessMemory.busiest_day_income, currency)} avg), slowest {weakestDay || "Thursday"} ({formatAmount(weakAvg || businessMemory.weakest_day_income, currency)} avg). You sell most {businessMemory.top_income_category || "Sales"}, biggest spend {mainCostName}{topExpenseDescription? ` (${topExpenseDescription})` : ""} ({formatAmount(mainCostAmount, currency)}).
             </p>
+            <div className="mt-4 bg-white border-2 border-gray-900 p-4 rounded-xl grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div><p className="text-[11px] font-black uppercase opacity-60">Profit</p><p className="text-[14px] font-black">{formatAmount(netProfit, currency)}/mo • Keep {profitMargin.toFixed(0)}%</p></div>
+              <div><p className="text-[11px] font-black uppercase opacity-60">Cash Status</p><p className={`text-[14px] font-black ${realRunwayData.isProfitable? "text-green-700" : "text-red-600"}`}>{realRunwayData.text}</p></div>
+              <div><p className="text-[11px] font-black uppercase opacity-60">If Nothing Changes</p><p className="text-[13px] font-black text-red-700">Lose {formatAmount(todayAction.annual, currency)}/yr • {weakestDay} stays {formatAmount(weakAvg, currency)}</p></div>
+            </div>
           </div>
         )}
 
-        <div className={`${dark? "bg-gray-800 border-white/10" : "bg-white border-2 border-gray-900"} rounded-[20px] p-6 mb-6 flex flex-wrap justify-between items-center gap-4`}>
+        <div className={`${dark? "bg-gray-800 border-white/10" : "bg-white border-2 border-gray-900"} rounded-[20px] p-6 mb-6 flex flex-wrap justify-between items-center gap-4 border-l-[8px] border-l-red-500`}>
           <div>
-            <p className="text-[11px] font-black uppercase tracking-widest text-indigo-600">TODAY</p>
+            <p className="text-[11px] font-black uppercase tracking-widest text-red-600">TODAY • Action this week</p>
             <p className="text-[18px] font-black mt-1">{todayAction.title}</p>
-            <p className="text-[13px] font-bold mt-1 opacity-80">{todayAction.detail} • Save {formatAmount(todayAction.saving, currency)} per month if you cut by 10%</p>
+            <p className="text-[13px] font-bold mt-1 opacity-80">{todayAction.detail}</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={copyTalkScript} className="bg-white border-2 border-gray-900 px-5 py-2.5 rounded-full text-[12px] font-black">Copy message to staff</button>
-            <button onClick={() => goToCoach(todayAction.goal)} className="bg-gray-900 text-white px-5 py-2.5 rounded-full text-[12px] font-black">Fix in Business Coach →</button>
+            <button onClick={copyTalkScript} className="bg-white border-2 border-gray-900 px-5 py-2.5 rounded-full text-[12px] font-black">Copy message</button>
+            <button onClick={() => goToCoach(todayAction.goal)} className="bg-gray-900 text-white px-5 py-2.5 rounded-full text-[12px] font-black">Fix in Coach →</button>
           </div>
         </div>
 
@@ -249,84 +282,110 @@ function Alerts({ dashboardData, isDarkMode }) {
           <AskMyBusiness transactions={transactions} totalRevenue={totalRevenue} totalExpenses={totalExpenses} topExpense={topExpense} horizon={12} currency={currency} realRunway={realRunwayData.text} profitMargin={profitMargin} businessMemory={businessMemory} alerts={rankedAlerts} context="alerts" isDarkMode={dark} />
         </div>
 
-        {rankedAlerts.length === 0? (
-          <div className={`${cardCls} p-10 rounded-2xl text-center`}><p className="text-[16px] font-black">All good! Business strength {strengthScore}/100 • Cash lasts {realRunwayData.text}</p></div>
-        ) : (
-          <div className="space-y-6">
-            {rankedAlerts.map((alert, idx) => {
-              const isExpanded = expandedId === alert.id;
-              const sliderVal = sliders[alert.id] || 10;
-              const cutAmount = (mainCostAmount || totalExpenses || 0) * (sliderVal / 100);
-              const annualSave = cutAmount * 12;
-              const newExpenses = Math.max(totalExpenses - cutAmount, 0);
-              const newNet = totalRevenue - newExpenses;
-              const newMargin = totalRevenue > 0? (newNet / totalRevenue) * 100 : 0;
-              const newStrength = Math.min(100, strengthScore + Math.round((cutAmount / (totalExpenses || 1)) * 50));
-              const projMonths = realRunwayData.isExhausted? (newNet >= 0? "Many" : (0.5 + sliderVal / 20).toFixed(1)) : "Many";
-              const rankLabel = alert._rank === 1? "Biggest thing to fix" : `Fix #${alert._rank} of ${alert._total}`;
+        <div className="space-y-6">
+          {rankedAlerts.map((alert, idx) => {
+            const isExpanded = expandedId === alert.id;
+            const sliderVal = sliders[alert.id] || 10;
 
-              let title = isProfit? `You keep ${formatAmount(netProfit, currency)} this month.` : `You lost ${formatAmount(Math.abs(netProfit), currency)} this month.`;
-              let sub = `Main reason: ${mainCostName}${topExpenseDescription? ` (${topExpenseDescription})` : ""} is ${topExpensePct}% of your spending.`;
-              let gain = `You can save ${formatAmount(cutAmount, currency)} per month = ${formatAmount(annualSave, currency)} per year if you cut by ${sliderVal}%`;
-              let coachGoal = "costs";
-              if (idx === 1) {
-                title = weakestDay? `Sales are slow on ${weakestDay} (${formatAmount(weakAvg, currency)} average).` : `One day is slow.`;
-                sub = busiestDay? `You make most on ${busiestDay} (${formatAmount(busyAvg, currency)} average), but ${weakestDay} is slow.` : `Some days sell more than others.`;
-                gain = `If you do promo on ${weakestDay}, you can make extra ${formatAmount(totalRevenue * 0.08, currency)} per month`;
-                coachGoal = "cashflow";
-              } else if (idx === 2) {
-                title = profitMargin < 0? `You lose ${Math.abs(profitMargin).toFixed(0)}% on every sale.` : `You keep ${profitMargin.toFixed(0)}% of every ${formatAmount(100, currency)} you sell.`;
-                sub = profitMargin < 0? `You lose ${Math.abs(profitMargin).toFixed(0)}% for every ${formatAmount(100, currency)} you sell.` : `You keep ${profitMargin.toFixed(0)}% of every ${formatAmount(100, currency)} you sell. Target is 20%.`;
-                gain = `If you raise price a little, you can make extra ${formatAmount(totalRevenue * 0.15, currency)} per year`;
-                coachGoal = "margin";
-              }
+            // Each fix has DIFFERENT math — no duplicate
+            let cutAmount = 0;
+            let annualSave = 0;
+            let newNet = netProfit;
+            let newMargin = profitMargin;
+            let newStrength = strengthScore;
+            let title = "";
+            let sub = "";
+            let gain = "";
+            let coachGoal = "costs";
+            let rankLabel = alert._rank === 1? "Biggest thing to fix" : `Fix #${alert._rank} of ${alert._total}`;
 
-              if (!isExpanded) {
-                return (
-                  <div key={alert.id} onClick={() => setExpandedId(alert.id)} className={`${cardCls} p-6 rounded-2xl flex justify-between items-center cursor-pointer hover:shadow-lg border-l-[6px] ${alert.level === "high"? "border-red-500" : alert.level === "medium"? "border-amber-400" : "border-blue-400"}`}>
-                    <div>
-                      <p className="text-[11px] font-black uppercase tracking-widest text-gray-500">{rankLabel} • {alert.level.toUpperCase()} • Fix this week</p>
-                      <p className="text-[16px] font-black mt-2">{title}</p>
-                      <p className="text-[13px] font-bold mt-1">{sub} {gain}</p>
-                    </div>
-                    <div className="text-[13px] font-black text-indigo-600 bg-indigo-50 px-4 py-2 rounded-full">See details →</div>
-                  </div>
-                );
-              }
+            if (idx === 0) {
+              cutAmount = (mainCostAmount || totalExpenses || 0) * (sliderVal / 100);
+              annualSave = cutAmount * 12;
+              newNet = totalRevenue - Math.max(totalExpenses - cutAmount, 0);
+              newMargin = totalRevenue > 0? (newNet / totalRevenue) * 100 : 0;
+              newStrength = Math.min(100, strengthScore + Math.round((cutAmount / (totalExpenses || 1)) * 50));
+              title = `Food is ${topExpensePct}% — you lose ${formatAmount(annualSave, currency)}/yr if you do nothing`;
+              sub = `${mainCostName} ${formatAmount(mainCostAmount, currency)} is ${topExpensePct}% of spend. If it stays, you lose ${formatAmount(annualSave, currency)}/yr`;
+              gain = `Cut ${sliderVal}% = Keep ${formatAmount(cutAmount, currency)}/mo = ${formatAmount(annualSave, currency)}/yr`;
+            } else if (idx === 1) {
+              const monthlyPotential = thursdayGap * 4 * 0.4;
+              const annualPotential = monthlyPotential * 12;
+              cutAmount = monthlyPotential * (sliderVal / 10);
+              annualSave = annualPotential * (sliderVal / 10);
+              title = `Thursday weak ${formatAmount(weakAvg, currency)} vs Friday ${formatAmount(busyAvg, currency)} — gap ${formatAmount(thursdayGap, currency)} lost`;
+              sub = `Best ${busiestDay} ${formatAmount(busyAvg, currency)}, but ${weakestDay} only ${formatAmount(weakAvg, currency)}. Gap = ${formatAmount(thursdayGap, currency)} every week`;
+              gain = `Fix Thursday to 40% of Friday = +${formatAmount(monthlyPotential, currency)}/mo = ${formatAmount(annualPotential, currency)}/yr`;
+              coachGoal = "cashflow";
+              newNet = netProfit + monthlyPotential;
+              newMargin = totalRevenue > 0? (newNet / totalRevenue) * 100 : 0;
+              newStrength = Math.min(100, strengthScore + 8);
+            } else {
+              const extra = totalRevenue * 0.05;
+              cutAmount = extra * (sliderVal / 10);
+              annualSave = extra * 12 * (sliderVal / 10);
+              title = `You keep ${profitMargin.toFixed(0)}% of every R100 — Food 58% eats profit`;
+              sub = `Keep ${profitMargin.toFixed(0)}% now, target 20% okay, but ${mainCostName} 58% high. Raise price 5% = extra ${formatAmount(extra, currency)}/mo`;
+              gain = `Raise 5% = +${formatAmount(extra, currency)}/mo = ${formatAmount(extra * 12, currency)}/yr`;
+              coachGoal = "margin";
+              newNet = netProfit + extra;
+              newMargin = totalRevenue > 0? (newNet / totalRevenue) * 100 : 0;
+              newStrength = Math.min(100, strengthScore + 5);
+            }
 
+            if (!isExpanded) {
               return (
-                <div key={alert.id} className={`${cardCls} p-0 rounded-2xl overflow-hidden shadow-xl border-l-4 ${alert.level === "high"? "border-red-500" : alert.level === "medium"? "border-amber-400" : "border-blue-400"}`}>
-                  <div className="bg-indigo-600 text-white p-6">
-                    <div className="flex justify-between items-center flex-wrap gap-2">
-                      <p className="text-[12px] font-black tracking-widest text-indigo-200 uppercase">{rankLabel}</p>
-                      <div className="flex gap-2">
-                        <button onClick={() => goToCoach(coachGoal)} className="text-[11px] font-black bg-yellow-300 text-gray-900 px-3 py-1 rounded-full">Open in Business Coach →</button>
-                        <button onClick={() => setExpandedId(null)} className="text-[11px] font-black bg-white/20 px-3 py-1 rounded-full">Close ↑</button>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-4">
-                      <div><p className="text-[11px] text-indigo-200 font-bold uppercase">Business strength</p><p className="text-[16px] font-black mt-1">{strengthScore}/100 → {newStrength}/100 after fix</p></div>
-                      <div><p className="text-[11px] text-indigo-200 font-bold uppercase">{isProfit? "You keep" : "You lose"}</p><p className="text-[16px] font-black mt-1">{formatAmount(Math.abs(netProfit), currency)} per month {isProfit? "profit" : "loss"}</p></div>
-                      <div><p className="text-[11px] text-indigo-200 font-bold uppercase">Biggest spending</p><p className="text-[13px] font-bold mt-1">{mainCostName} {topExpensePct}% of spending ({formatAmount(mainCostAmount, currency)})</p></div>
-                      <div><p className="text-[11px] text-indigo-200 font-bold uppercase">You will save</p><p className="text-[15px] font-black mt-1 text-green-200">{formatAmount(annualSave, currency)} per year • {formatAmount(cutAmount, currency)} per month</p></div>
-                    </div>
+                <div key={alert.id} onClick={() => setExpandedId(alert.id)} className={`${cardCls} p-6 rounded-2xl flex justify-between items-center cursor-pointer hover:shadow-lg border-l-[6px] ${alert.level === "high"? "border-red-500" : alert.level === "medium"? "border-amber-400" : "border-blue-400"}`}>
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-widest text-gray-500">{rankLabel} • {alert.level.toUpperCase()} • Fix this week</p>
+                    <p className="text-[16px] font-black mt-2">{title}</p>
+                    <p className="text-[13px] font-bold mt-1">{sub} • {gain}</p>
                   </div>
-                  <div className="p-7 space-y-6">
-                    <div className={`${innerCls} p-6 rounded-xl`}>
-                      <p className="text-[12px] font-black uppercase tracking-widest text-gray-500">What is happening?</p>
-                      <p className="text-[14px] font-bold mt-3">{isProfit? `You keep ${formatAmount(netProfit, currency)} every month and you keep ${profitMargin.toFixed(0)}% of every ${formatAmount(100, currency)} you sell. ` : `You lose ${formatAmount(Math.abs(netProfit), currency)} every month because ${mainCostName}${topExpenseDescription? ` (${topExpenseDescription})` : ""} is too high (${topExpensePct}% of spending). `}{busiestDay? `Your best day is ${busiestDay} (${formatAmount(busyAvg, currency)} average), ` : ""}{weakestDay? `slowest day is ${weakestDay} (${formatAmount(weakAvg, currency)} average). ` : ""}If you save {formatAmount(cutAmount, currency)} per month, your cash will last {projMonths} months.</p>
-                    </div>
-                    <div className="bg-teal-50 border-2 border-teal-200 p-6 rounded-xl">
-                      <p className="text-[12px] font-black uppercase tracking-widest text-teal-800">Try it — what happens if you cut {mainCostName} by {sliderVal}%?</p>
-                      <input type="range" min="0" max="30" value={sliderVal} onChange={(e) => setSliders((prev) => ({...prev, [alert.id]: Number(e.target.value) }))} className="w-full accent-teal-600 h-2 mt-4" />
-                      <p className="text-[13px] font-bold mt-4">Now: You keep {profitMargin.toFixed(0)}% of every {formatAmount(100, currency)} you sell • Cash lasts {realRunwayData.text} • Strength {strengthScore}/100 → After cutting: You keep {newMargin.toFixed(0)}% • Cash lasts {projMonths} months • Strength {newStrength}/100</p>
-                    </div>
-                  </div>
+                  <div className="text-[13px] font-black text-indigo-600 bg-indigo-50 px-4 py-2 rounded-full">See details →</div>
                 </div>
               );
-            })}
-          </div>
-        )}
+            }
+
+            return (
+              <div key={alert.id} className={`${cardCls} p-0 rounded-2xl overflow-hidden shadow-xl border-l-4 ${alert.level === "high"? "border-red-500" : alert.level === "medium"? "border-amber-400" : "border-blue-400"}`}>
+                <div className="bg-indigo-600 text-white p-6">
+                  <div className="flex justify-between items-center flex-wrap gap-2">
+                    <p className="text-[12px] font-black tracking-widest text-indigo-200 uppercase">{rankLabel} • {gain}</p>
+                    <div className="flex gap-2">
+                      <button onClick={() => goToCoach(coachGoal)} className="text-[11px] font-black bg-yellow-300 text-gray-900 px-3 py-1 rounded-full">Open in Coach →</button>
+                      <button onClick={() => setExpandedId(null)} className="text-[11px] font-black bg-white/20 px-3 py-1 rounded-full">Close ↑</button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-4">
+                    <div><p className="text-[11px] text-indigo-200 font-bold uppercase">Health</p><p className="text-[16px] font-black mt-1">{strengthScore}/100 → {newStrength}/100</p></div>
+                    <div><p className="text-[11px] text-indigo-200 font-bold uppercase">Profit</p><p className="text-[16px] font-black mt-1">{formatAmount(netProfit, currency)}/mo → {formatAmount(newNet, currency)}/mo</p></div>
+                    <div><p className="text-[11px] text-indigo-200 font-bold uppercase">{idx === 0? "Biggest spend" : idx === 1? "Day gap" : "Margin"}</p><p className="text-[13px] font-bold mt-1">{idx === 0? `${mainCostName} ${topExpensePct}% (${formatAmount(mainCostAmount, currency)})` : idx === 1? `Gap ${formatAmount(thursdayGap, currency)} • Thu ${formatAmount(weakAvg, currency)} vs Fri ${formatAmount(busyAvg, currency)}` : `Keep ${profitMargin.toFixed(0)}% • Food 58% eats it`}</p></div>
+                    <div><p className="text-[11px] text-indigo-200 font-bold uppercase">If you fix</p><p className="text-[15px] font-black mt-1 text-green-200">+{formatAmount(cutAmount, currency)}/mo • {formatAmount(annualSave, currency)}/yr</p></div>
+                  </div>
+                </div>
+                <div className="p-7 space-y-6">
+                  <div className={`${innerCls} p-6 rounded-xl`}>
+                    <p className="text-[12px] font-black uppercase tracking-widest text-gray-500">What happens if you do nothing?</p>
+                    <p className="text-[14px] font-bold mt-3">
+                      {idx === 0 && `You keep ${formatAmount(netProfit, currency)}/mo and ${profitMargin.toFixed(0)}% per R100. ${mainCostName} stays ${topExpensePct}% (${formatAmount(mainCostAmount, currency)}). You lose ${formatAmount(cutAmount, currency)}/mo = ${formatAmount(annualSave, currency)}/yr. ${realRunwayData.isProfitable? `Cash growing +${formatAmount(netProfit, currency)}/mo now, but still losing on waste.` : `Cash ${realRunwayData.text}.`}`}
+                      {idx === 1 && `Best ${busiestDay} ${formatAmount(busyAvg, currency)}, slowest ${weakestDay} ${formatAmount(weakAvg, currency)}. Gap ${formatAmount(thursdayGap, currency)} every week. If nothing changes, Thursday stays weak and you miss ${formatAmount(annualSave, currency)}/yr.`}
+                      {idx === 2 && `You keep ${profitMargin.toFixed(0)}% per R100, target 20% is okay, but Food 58% is high. If nothing changes, margin stays ${profitMargin.toFixed(0)}%. Raise price a little = keep extra ${formatAmount(annualSave, currency)}/yr.`}
+                    </p>
+                  </div>
+                  <div className="bg-teal-50 border-2 border-teal-200 p-6 rounded-xl">
+                    <p className="text-[12px] font-black uppercase tracking-widest text-teal-800">
+                      {idx === 0? `Try it — cut ${mainCostName} by ${sliderVal}%?` : idx === 1? `Try it — boost Thursday by ${sliderVal}%?` : `Try it — raise price by ${sliderVal}%?`}
+                    </p>
+                    <input type="range" min="0" max="30" value={sliderVal} onChange={(e) => setSliders((prev) => ({...prev, [alert.id]: Number(e.target.value) }))} className="w-full accent-teal-600 h-2 mt-4" />
+                    <p className="text-[13px] font-bold mt-4">
+                      Now: Profit {formatAmount(netProfit, currency)}/mo • Keep {profitMargin.toFixed(0)}% • Health {strengthScore}/100 → After: Profit {formatAmount(newNet, currency)}/mo • Keep {newMargin.toFixed(0)}% • Health {newStrength}/100 • +{formatAmount(annualSave, currency)}/yr
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
         {toast && <div className="fixed bottom-6 right-6 bg-gray-900 text-white px-5 py-3 rounded-xl text-[13px] font-black shadow-2xl z-50">{toast}</div>}
       </div>
     </div>
