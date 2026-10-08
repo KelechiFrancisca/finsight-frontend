@@ -1,24 +1,36 @@
 import { BrowserRouter as Router, Routes, Route, NavLink, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from "chart.js";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FaBars, FaTimes, FaSignOutAlt, FaDollarSign } from "react-icons/fa";
 import Login from "./Login"; import Register from "./Register"; import Dashboard from "./Dashboard"; import Forecast from "./Forecast"; import Alerts from "./Alerts"; import Settings from "./Settings"; import Profile from "./Profile"; import ForgotPassword from "./ForgotPassword"; import ResetPassword from "./ResetPassword"; import ProtectedRoute from "./ProtectedRoute";
+import API_BASE_URL from "./apiConfig";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [alertCount, setAlertCount] = useState(0);
   const token = localStorage.getItem("token");
   const location = useLocation(); const navigate = useNavigate();
   const isAuthPage = ["/login", "/register", "/forgot-password"].some(p=>location.pathname.startsWith(p)) || location.pathname.startsWith("/reset-password");
   const handleLogout = () => { localStorage.removeItem("token"); navigate("/login"); };
 
-  // SIMPLIFIED - 4 ITEMS ONLY AS YOU ASKED
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API_BASE_URL}/alerts`, { headers: { Authorization: "Bearer " + token } })
+   .then(res => res.json())
+   .then(data => {
+      const list = Array.isArray(data)? data : data.alerts || data.entries || [];
+      setAlertCount(list.length || data.count || 0);
+    }).catch(() => {});
+  }, [token]);
+
+  // 4 ITEMS ONLY - NOW WITH BELL COUNT
   const navItems = [
     { to: "/dashboard", label: "My Business", emoji: "🏠", sub: "How's my business?" },
     { to: "/forecast", label: "Business Coach", emoji: "🤖", sub: "What should I do?", badge: "AI" },
-    { to: "/alerts", label: "Alerts", emoji: "⚠️", sub: "What needs attention?" },
+    { to: "/alerts", label: "Alerts", emoji: "🔔", sub: "What needs attention?", count: alertCount },
     { to: "/settings", label: "Settings", emoji: "⚙️", sub: "Profile & app" },
   ];
 
@@ -49,7 +61,10 @@ function AppLayout() {
             {navItems.map(item => (
               <NavLink key={item.to} to={item.to} className={({ isActive }) => isActive? linkActive : linkInactive(isDarkMode)}>
                 <span className="flex flex-col"><span className="flex items-center gap-2"><span className="text-lg">{item.emoji}</span>{item.label}</span><span className="text-[10px] font-bold opacity-60 ml-7 -mt-0.5">{item.sub}</span></span>
-                {item.badge && <span className="text-[9px] bg-yellow-300 text-black px-2 py-0.5 rounded-full border-2 border-black font-black">{item.badge}</span>}
+                <div className="flex items-center gap-1">
+                  {item.count > 0 && <span className="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full font-black">{item.count}</span>}
+                  {item.badge && <span className="text-[9px] bg-yellow-300 text-black px-2 py-0.5 rounded-full border-2 border-black font-black">{item.badge}</span>}
+                </div>
               </NavLink>
             ))}
             {!token && (<><NavLink to="/login" className={({ isActive }) => isActive? linkActive : linkInactive(isDarkMode)}>Login</NavLink><NavLink to="/register" className={({ isActive }) => isActive? linkActive : linkInactive(isDarkMode)}>Register</NavLink></>)}

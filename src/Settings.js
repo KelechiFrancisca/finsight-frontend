@@ -55,6 +55,7 @@ function Settings({ isDarkMode }) {
     if (!token) { window.location.href = "/login"; return; }
     fetch(`${API_BASE_URL}/settings`, { headers: { Authorization: "Bearer " + token } })
 .then((res) => res.json()).then((data) => {
+        // FIXED: only from settings.business_name, never user.email
         setBusinessName(data.business_name || "");
         setCurrency(data.currency || getInitialCurrency());
         setLoading(false);
@@ -120,7 +121,7 @@ function Settings({ isDarkMode }) {
     if (window.confirm("Clear all transactions? This cannot be undone.")) {
       const token = localStorage.getItem("token");
       fetch(`${API_BASE_URL}/clear_entries`, { method: "DELETE", headers: { Authorization: "Bearer " + token } })
- .then(() => toast.info("Transactions cleared!")).catch(() => toast.error("Failed to clear transactions."));
+.then(() => toast.info("Transactions cleared!")).catch(() => toast.error("Failed to clear transactions."));
     }
   };
 
@@ -186,7 +187,8 @@ function Settings({ isDarkMode }) {
       {errors.form && (<div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl font-bold">{errors.form}</div>)}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className={isDarkMode? "bg-gray-800 border border-white/10 p-5 rounded-xl" : "bg-white border border-gray-200 p-5 rounded-xl shadow-sm"}><div className="flex items-center gap-2 mb-2"><FaBuilding className="text-gray-400 text-[13px]" /><h2 className="text-[12px] uppercase tracking-widest font-semibold text-gray-500">Business Name</h2></div><p className="text-[18px] font-bold truncate">{businessName || profile.name || "Not Set"}</p></div>
+        {/* FIXED LINE - WAS: businessName || profile.name || "Not Set" */}
+        <div className={isDarkMode? "bg-gray-800 border border-white/10 p-5 rounded-xl" : "bg-white border border-gray-200 p-5 rounded-xl shadow-sm"}><div className="flex items-center gap-2 mb-2"><FaBuilding className="text-gray-400 text-[13px]" /><h2 className="text-[12px] uppercase tracking-widest font-semibold text-gray-500">Business Name</h2></div><p className="text-[18px] font-bold truncate">{businessName || "Set your business name"}</p></div>
         <div className={isDarkMode? "bg-gray-800 border border-white/10 p-5 rounded-xl" : "bg-white border border-gray-200 p-5 rounded-xl shadow-sm"}><div className="flex items-center gap-2 mb-2"><FaCoins className="text-gray-400 text-[13px]" /><h2 className="text-[12px] uppercase tracking-widest font-semibold text-gray-500">Currency</h2></div><p className="text-[18px] font-bold">{currency || "Not Set"} {currencySymbols[currency]}</p></div>
         <div className={isDarkMode? "bg-gray-800 border border-white/10 p-5 rounded-xl" : "bg-white border border-gray-200 p-5 rounded-xl shadow-sm"}><div className="flex items-center gap-2 mb-2"><FaBrain className="text-indigo-500 text-[13px]" /><h2 className="text-[12px] uppercase tracking-widest font-semibold text-gray-500">Your Sales History</h2></div><p className="text-[18px] font-bold text-emerald-600">{displayMonths? `${displayMonths} months of sales` : "Add your first sale"}</p><p className="text-[11px] text-gray-500 mt-1">Based on your real transactions</p></div>
       </div>
