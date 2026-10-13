@@ -52,7 +52,30 @@ function Dashboard({ isDarkMode, setIsDarkMode }) {
   useEffect(() => { const token = localStorage.getItem("token"); if (!token) { setTransactions([]); window.location.href = "/login"; } }, []);
   const loadEntries = useCallback(() => { apiFetch("/entries").then(data => setTransactions(Array.isArray(data)? data : [])).catch(err => console.error("Error fetching entries:", err)); }, []);
   useEffect(() => { loadEntries(); }, [loadEntries]);
-  useEffect(() => { apiFetch("/categories").then(data => setCategories(Array.isArray(data)? data : [])).catch(() => { }); }, []);
+  useEffect(() => { apiFetch("/categories").then(data => {
+    if(Array.isArray(data) && data.length > 0) setCategories(data);
+    else setCategories([
+      {id:1,name:"Food",type:"expense"},
+      {id:2,name:"Marketing",type:"expense"},
+      {id:3,name:"Rent",type:"expense"},
+      {id:4,name:"Transport",type:"expense"},
+      {id:5,name:"Utilities",type:"expense"},
+      {id:6,name:"Other",type:"expense"},
+      {id:7,name:"Sales",type:"income"},
+      {id:8,name:"Other",type:"income"}
+    ]);
+  }).catch(() => {
+    setCategories([
+      {id:1,name:"Food",type:"expense"},
+      {id:2,name:"Marketing",type:"expense"},
+      {id:3,name:"Rent",type:"expense"},
+      {id:4,name:"Transport",type:"expense"},
+      {id:5,name:"Utilities",type:"expense"},
+      {id:6,name:"Other",type:"expense"},
+      {id:7,name:"Sales",type:"income"},
+      {id:8,name:"Other",type:"income"}
+    ]);
+  }); }, []);
   useEffect(() => {
     const token = localStorage.getItem("token"); if (!token) return;
     fetch(`${API_BASE_URL}/settings`, { headers: { Authorization: "Bearer " + token } }).then(res => res.json()).then(data => {
@@ -67,7 +90,7 @@ function Dashboard({ isDarkMode, setIsDarkMode }) {
   const handleOpenForm = () => { setShowForm(true); setTimeout(() => { formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100); };
   const handleSaveAll = (e) => {
     e.preventDefault();
-    const formatted = newTransactions.map(t => ({...t, date: normalizeDate(t.date), type: t.type.toLowerCase(), category: normalizeCategory(t.category), amount: parseFloat(t.amount) || 0 }));
+    const formatted = newTransactions.map(t => ({...t, date: normalizeDate(t.date), type: t.type.toLowerCase(), category: normalizeCategory(t.category), description: (t.description || "").trim(), amount: parseFloat(t.amount) || 0 }));
     apiFetch("/add", { method: "POST", body: JSON.stringify(formatted) }).then(() => { loadEntries(); setNewTransactions([{ date: "", type: "Expense", category: "", description: "", amount: "" }]); setShowForm(false); });
   };
   const handleCSVUpload = (e) => {
@@ -80,7 +103,7 @@ function Dashboard({ isDarkMode, setIsDarkMode }) {
       apiFetch("/add", { method: "POST", body: JSON.stringify(parsed) }).then(() => { loadEntries(); });
     }});
   };
-  const editTransaction = (id) => { const entry = transactions.find(t => t.id === id); if (!entry) return; const newDescription = prompt("Edit description:", entry.description); if (newDescription === null) return; apiFetch("/edit_entry", { method: "PUT", body: JSON.stringify({...entry, description: newDescription }) }).then(() => { loadEntries(); }); };
+  const editTransaction = (id) => { const entry = transactions.find(t => t.id === id); if (!entry) return; const newDescription = prompt("Edit what is this for?", entry.description); if (newDescription === null) return; apiFetch("/edit_entry", { method: "PUT", body: JSON.stringify({...entry, description: newDescription }) }).then(() => { loadEntries(); }); };
   const deleteTransaction = (id) => { if (!window.confirm("Delete this transaction?")) return; apiFetch("/delete_entry", { method: "DELETE", body: JSON.stringify({ id }) }).then(() => { loadEntries(); }); };
   const exportPDF = async () => { const input = document.getElementById('dashboard-to-pdf'); const canvas = await html2canvas(input, { scale: 2, backgroundColor: isDarkMode? '#111827' : '#ffffff' }); const imgData = canvas.toDataURL('image/png'); const pdf = new jsPDF('p', 'mm', 'a4'); const pdfWidth = pdf.internal.pageSize.getWidth(); const pdfHeight = (canvas.height * pdfWidth) / canvas.width; pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight); pdf.save(`Financial-Report-${new Date().toLocaleDateString()}.pdf`); };
   const exportCSV = () => { const csv = Papa.unparse(filteredTransactions); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.setAttribute('download', `transactions-${new Date().toLocaleDateString()}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); };
@@ -105,8 +128,7 @@ function Dashboard({ isDarkMode, setIsDarkMode }) {
     const avgBurn = sortedKeys.length > 0? sortedKeys.reduce((s, k) => s + (monthlyData[k]?.expense || 0), 0) / sortedKeys.length : 0;
     if (netProfit >= 0) return { text: `Profitable • +${formatAmountPlain(netProfit, currency)}/mo`, isProfitable: true };
     if (avgBurn === 0) return { text: "No expense data", isProfitable: false };
-    const months = Math.abs(netProfit) / avgBurn;
-    return { text: `${months.toFixed(1)} Months left`, isProfitable: false };
+    return { text: `Cash finished now - cut ${formatAmountPlain(avgBurn*0.1, currency)} this week`, isProfitable: false };
   }, [monthlyData, netProfit, currency]);
 
   const bestMove = useMemo(() => {
@@ -148,12 +170,23 @@ function Dashboard({ isDarkMode, setIsDarkMode }) {
   const categoryOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "right", labels: { color: textColor, font: { size: 14 } } }, title: { display: true, text: "Expenses by Category", color: textColor, font: { size: 20, weight: 'bold' } }, tooltip: { callbacks: { label: (c) => `${c.label}: ${formatAmount(c.parsed, currency)}` } } } };
   const profitOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "top", labels: { color: textColor } }, title: { display: true, text: "Net Profit Trend", color: textColor, font: { size: 20, weight: 'bold' } }, tooltip: { callbacks: { label: (c) => `Net Profit: ${formatAmount(c.parsed.y, currency)}` } } }, scales: { y: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 13 }, callback: (v) => formatAmount(v, currency) } }, x: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 13 }, maxRotation: 45, minRotation: 45 } } } };
 
-  const filteredTransactions = useMemo(() => { return transactions.filter(tx => { const matchesSearch = tx.description.toLowerCase().includes(searchTerm.toLowerCase()) || tx.category.toLowerCase().includes(searchTerm.toLowerCase()); const matchesType = filterType === 'all' || tx.type?.toLowerCase() === filterType; const txDate = new Date(tx.date); const matchesDate = (!dateRange.start || txDate >= new Date(dateRange.start)) && (!dateRange.end || txDate <= new Date(dateRange.end)); return matchesSearch && matchesType && matchesDate; }); }, [transactions, searchTerm, filterType, dateRange]);
+  const filteredTransactions = useMemo(() => { return transactions.filter(tx => { const matchesSearch = (tx.description || "").toLowerCase().includes(searchTerm.toLowerCase()) || (tx.category || "").toLowerCase().includes(searchTerm.toLowerCase()); const matchesType = filterType === 'all' || tx.type?.toLowerCase() === filterType; const txDate = new Date(tx.date); const matchesDate = (!dateRange.start || txDate >= new Date(dateRange.start)) && (!dateRange.end || txDate <= new Date(dateRange.end)); return matchesSearch && matchesType && matchesDate; }); }, [transactions, searchTerm, filterType, dateRange]);
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
   const paginatedTransactions = filteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const highlightText = (text) => { if (!searchTerm) return text; const parts = String(text).split(new RegExp(`(${searchTerm})`, 'gi')); return parts.map((part, i) => part.toLowerCase() === searchTerm.toLowerCase()? <span key={i} className="bg-yellow-300 text-black px-1 rounded">{part}</span> : part); };
 
   const hundredUnit = formatAmountPlain(100, currency);
+
+  const getCategoryOptions = (type) => {
+    const list = categories.filter(c => c.type === (type?.toLowerCase() || "expense"));
+    if(list.length === 0){
+      const fallback = type?.toLowerCase() === "income"? ["Sales","Other"] : ["Food","Marketing","Rent","Transport","Utilities","Other"];
+      return fallback.map(name => ({id:name,name,type}));
+    }
+    const hasOther = list.some(c => c.name.toLowerCase() === "other");
+    if(!hasOther) return [...list, {id:"other",name:"Other",type}];
+    return list;
+  };
 
   return (
     <div id="dashboard-to-pdf" className={isDarkMode? "bg-gray-900 text-white min-h-screen p-6" : "bg-[#f6f7f9] text-gray-900 min-h-screen p-6"}>
@@ -275,7 +308,7 @@ function Dashboard({ isDarkMode, setIsDarkMode }) {
         )}
       </div>
 
-      {showForm && (<div ref={formRef} className={`${glassCard} p-6 rounded-2xl mb-8 shadow-lg border-2 border-teal-500`}><h2 className="text-2xl font-bold mb-5">New Transactions</h2><form onSubmit={handleSaveAll} className="space-y-4">{newTransactions.map((t, index) => (<div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-3"><input type="date" value={t.date} onChange={(e) => handleChange(index, "date", e.target.value)} className={glassInput} required /><select value={t.type} onChange={(e) => handleChange(index, "type", e.target.value)} className={glassInput}><option>Expense</option><option>Income</option></select><select value={t.category} onChange={(e) => handleChange(index, "category", e.target.value)} className={glassInput} required><option value="">Select Category</option>{categories.filter(c => c.type === (t.type?.toLowerCase() || "expense")).map(cat => (<option key={cat.id} value={cat.name}>{cat.name}</option>))}</select><input type="text" placeholder="Description" value={t.description} onChange={(e) => handleChange(index, "description", e.target.value)} className={glassInput} required /><input type="number" placeholder="Amount" value={t.amount} onChange={(e) => handleChange(index, "amount", e.target.value)} className={glassInput} required /></div>))}<div className="flex gap-3 mt-5"><button type="button" onClick={handleAddRow} className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-base font-bold">Add Row</button><button type="button" onClick={() => setShowForm(false)} className="px-5 py-2.5 bg-gray-400 text-white rounded-xl text-base font-bold">Cancel</button><button type="submit" className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-base font-bold">Save</button></div></form></div>)}
+      {showForm && (<div ref={formRef} className={`${glassCard} p-6 rounded-2xl mb-8 shadow-lg border-2 border-teal-500`}><h2 className="text-2xl font-bold mb-5">New Transactions</h2><form onSubmit={handleSaveAll} className="space-y-4">{newTransactions.map((t, index) => (<div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-3"><input type="date" value={t.date} onChange={(e) => handleChange(index, "date", e.target.value)} className={glassInput} required /><select value={t.type} onChange={(e) => handleChange(index, "type", e.target.value)} className={glassInput}><option>Expense</option><option>Income</option></select><select value={t.category} onChange={(e) => handleChange(index, "category", e.target.value)} className={glassInput} required><option value="">Select Category</option>{getCategoryOptions(t.type).map(cat => (<option key={cat.id} value={cat.name}>{cat.name}</option>))}</select><input type="text" placeholder="What is this for? e.g. NEPA bill, fuel, rice stock" value={t.description} onChange={(e) => handleChange(index, "description", e.target.value)} className={glassInput} required /><input type="number" placeholder="Amount" value={t.amount} onChange={(e) => handleChange(index, "amount", e.target.value)} className={glassInput} required /></div>))}<div className="flex gap-3 mt-5"><button type="button" onClick={handleAddRow} className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-base font-bold">Add Row</button><button type="button" onClick={() => setShowForm(false)} className="px-5 py-2.5 bg-gray-400 text-white rounded-xl text-base font-bold">Cancel</button><button type="submit" className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-base font-bold">Save</button></div></form></div>)}
 
       <div id="transactions-table" className={`${glassCard} p-6 rounded-2xl shadow-lg`}>
         <h2 className="text-2xl font-bold mb-5">Recent Transactions</h2>

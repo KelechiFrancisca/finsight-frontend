@@ -112,18 +112,27 @@ function Forecast({ isDarkMode }) {
   const scenarioAvgRevenue = avgMonthlyRevenue * (1 + scenario.revenueChange / 100);
   const scenarioAvgExpense = avgMonthlyExpense * (1 + scenario.expenseChange / 100);
   const scenarioMonthlyCash = scenarioAvgRevenue - scenarioAvgExpense;
-  const scenarioCashLastsMonths = scenarioAvgExpense > 0? currentCash / scenarioAvgExpense : 99;
-  const scenarioCashText = currentCash <= 0? "No cash left" : scenarioCashLastsMonths > 99? "Many months" : `${scenarioCashLastsMonths.toFixed(1)} Months`;
+  // FIXED: never negative months
+  const scenarioCashLastsMonths = useMemo(() => {
+    if (currentCash <= 0) return 0;
+    if (scenarioAvgExpense <= 0) return 99;
+    return Math.max(0, currentCash / scenarioAvgExpense);
+  }, [currentCash, scenarioAvgExpense]);
+  const scenarioCashText = useMemo(() => {
+    if (currentCash <= 0) return "Cash finished now";
+    if (scenarioCashLastsMonths > 99) return "Many months";
+    return `${scenarioCashLastsMonths.toFixed(1)} Months`;
+  }, [currentCash, scenarioCashLastsMonths]);
   const scenarioKeepPercent = scenarioAvgRevenue > 0? (scenarioMonthlyCash / scenarioAvgRevenue) * 100 : 0;
 
   const realCashData = useMemo(() => {
     const last3 = sortedMonths.slice(-3);
-    if (last3.length === 0 &&!businessMemory) return { avg: 0, text: "No data yet", months: 0 };
     const avg = last3.length? last3.reduce((s, k) => s + (monthlyData[k]?.expense || 0), 0) / last3.length : avgMonthlyExpense;
-    if (currentCash <= 0) return { avg, text: "No cash left", months: 0 };
+    if (currentCash <= 0) return { avg, text: "Cash finished now", months: 0 };
     if (avg === 0) return { avg, text: "Many months", months: 99 };
-    return { avg, text: `${(currentCash / avg).toFixed(1)} Months`, months: currentCash / avg };
-  }, [sortedMonths, monthlyData, currentCash, businessMemory, avgMonthlyExpense]);
+    const m = Math.max(0, currentCash / avg);
+    return { avg, text: m > 99? "Many months" : `${m.toFixed(1)} Months`, months: m };
+  }, [sortedMonths, monthlyData, currentCash, avgMonthlyExpense]);
 
   const monthsAhead = useMemo(() => Array.from({ length: horizon }, (_, i) => { const d = new Date(); d.setMonth(d.getMonth() + i + 1); return d.toLocaleString("default", { month: "short", year: "numeric" }); }), [horizon]);
 
@@ -133,7 +142,12 @@ function Forecast({ isDarkMode }) {
   const cumulativeCash = useMemo(() => projectedProfit.reduce((acc, profit, i) => { const prev = i === 0? currentCash : acc[i - 1]; acc.push(prev + profit); return acc; }, []), [projectedProfit, currentCash]);
 
   const cutAmount = (topExpense?.[1] || 0) * (costCutSlider / 100);
-  const scenarioNewCashLasts = useMemo(() => { const sim = Math.max(scenarioAvgExpense - cutAmount, 0); if (currentCash <= 0) return 0; if (sim === 0) return 999; return currentCash / sim; }, [scenarioAvgExpense, cutAmount, currentCash]);
+  const scenarioNewCashLasts = useMemo(() => {
+    if (currentCash <= 0) return 0;
+    const sim = Math.max(scenarioAvgExpense - cutAmount, 0);
+    if (sim === 0) return 999;
+    return Math.max(0, currentCash / sim);
+  }, [scenarioAvgExpense, cutAmount, currentCash]);
 
   const runOutMonthIndex = cumulativeCash.findIndex(c => c <= 0);
   const runOutMonth = useMemo(() => {
@@ -209,16 +223,16 @@ function Forecast({ isDarkMode }) {
       moneyNeeded = 0; moneySave = realTopAmt * 0.2; difficulty = "Easy"; probability += 10;
     } else if (goalType === "hire") {
       const staffCost = Math.round(realAvgBurn * 0.6) || Math.round(avgDailyIncome * 20);
-      const newHire = realAvgBurn > 0? currentCash / (realAvgBurn + staffCost) : 0;
+      const newHire = currentCash <=0? 0 : (realAvgBurn > 0? currentCash / (realAvgBurn + staffCost) : 0);
       const canHire = netProfit > staffCost;
       whatsNeededText = canHire? `Hiring now cuts your cash from ${realCashData.text} to ${newHire.toFixed(1)} months. Salary ${formatAmount(staffCost, currency)} leaves ${formatAmount(netProfit - staffCost, currency)}. Safe to hire but watch cash.` : `If you hire now, cash runs out faster: from ${realCashData.text} to ${newHire.toFixed(1)} months. You need ${formatAmount(staffCost, currency)} for salary. Not recommended until you make ${formatAmount(staffCost + 10000, currency)} extra per month.`;
       moneyNeeded = staffCost; moneySave = canHire? netProfit - staffCost : 0; probability = canHire? 75 : 35; difficulty = canHire? "Easy" : "High";
     } else if (goalType === "branch") {
-      const branchCost = realTotalExp * 3; const canBranch = currentCash > branchCost; const newBranch = realAvgBurn > 0? currentCash / (realAvgBurn + branchCost / 6) : 0;
+      const branchCost = realTotalExp * 3; const canBranch = currentCash > branchCost; const newBranch = currentCash <=0? 0 : (realAvgBurn > 0? currentCash / (realAvgBurn + branchCost / 6) : 0);
       whatsNeededText = canBranch? `You have ${formatAmount(currentCash, currency)} and need ${formatAmount(branchCost, currency)} for another shop. If you open now, cash lasts ${newBranch.toFixed(1)} months instead of ${realCashData.text}.` : `You cannot afford another shop yet. You need ${formatAmount(branchCost, currency)}. If you open now, you run out in ${newBranch.toFixed(1)} months. Save for ${Math.ceil(branchCost / Math.max(netProfit, 1))} months.`;
       moneyNeeded = branchCost; moneySave = canBranch? realTotalExp * 0.1 : 0; probability = canBranch? 68 : 30; difficulty = canBranch? "Medium" : "High";
     } else if (goalType === "equipment") {
-      const equipCost = Math.round(realTopAmt * 1.2) || Math.round(avgMonthlyExpense * 2); const newEquip = realAvgBurn > 0? currentCash / (realAvgBurn + equipCost / 6) : 0;
+      const equipCost = Math.round(realTopAmt * 1.2) || Math.round(avgMonthlyExpense * 2); const newEquip = currentCash <=0? 0 : (realAvgBurn > 0? currentCash / (realAvgBurn + equipCost / 6) : 0);
       whatsNeededText = `Equipment costs ${formatAmount(equipCost, currency)}. If you buy now, cash goes from ${realCashData.text} to ${newEquip.toFixed(1)} months. It will cut your ${realTopCat} spending later.`;
       moneyNeeded = equipCost; moneySave = equipCost * 0.3; probability = 70;
     } else if (goalType === "cashflow") {
@@ -230,7 +244,7 @@ function Forecast({ isDarkMode }) {
       moneyNeeded = 0; moneySave = realTopAmt * 0.1;
     } else if (goalType === "custom") {
       const nums = goalInput.match(/\d+/g); let customCost = nums? parseInt(nums[0]) * (avgDailyIncome || 1000) : realTotalExp * 1.5;
-      const newCustom = realAvgBurn > 0? currentCash / (realAvgBurn + customCost / 6) : 0;
+      const newCustom = currentCash <=0? 0 : (realAvgBurn > 0? currentCash / (realAvgBurn + customCost / 6) : 0);
       whatsNeededText = `"${goalInput}" costs about ${formatAmount(customCost, currency)}. You have ${formatAmount(currentCash, currency)} now. If you start now, cash lasts ${newCustom.toFixed(1)} months vs ${realCashData.text}. ${currentCash >= customCost? "You can start now." : `Save for ${Math.ceil(customCost / Math.max(avgMonthlyRevenue, 1))} months.`}`;
       moneyNeeded = customCost; moneySave = currentCash >= customCost? currentCash - customCost : 0; difficulty = currentCash >= customCost? "Easy" : "Medium"; probability = currentCash >= customCost? 80 : 50;
     }
@@ -275,7 +289,7 @@ function Forecast({ isDarkMode }) {
 
       <div className="bg-red-600 text-white rounded-[20px] p-5 mt-4 mb-6 border-2 border-gray-900 shadow-xl">
         <h2 className="text-xs font-black uppercase tracking-widest">⚠️ If you do nothing</h2>
-        <p className="text-sm font-bold mt-2">{scenarioCashLastsMonths <= 0? `Cash is finished now.` : `Cash runs out in ${scenarioCashText}.`} {realTopCat} stays at {totalExpenses > 0? ((realTopAmt) / totalExpenses * 100).toFixed(0) : 0}% of spending. {weakestDay} sales stay low. You lose about {formatAmount(realTopAmt * 0.2 * 12, currency)} per year if {realTopCat} stays high.</p>
+        <p className="text-sm font-bold mt-2">{currentCash <= 0? `Cash is finished now.` : `Cash runs out in ${scenarioCashText}.`} {realTopCat} stays at {totalExpenses > 0? ((realTopAmt) / totalExpenses * 100).toFixed(0) : 0}% of spending. {weakestDay} sales stay low. You lose about {formatAmount(realTopAmt * 0.2 * 12, currency)} per year if {realTopCat} stays high.</p>
         <p className="text-xs font-bold mt-2 opacity-90">You make {formatAmount(scenarioAvgRevenue, currency)} per month, you spend {formatAmount(scenarioAvgExpense, currency)} per month. Action needed this week: Cut {realTopCat} by 10% = save {formatAmount(strategyA_Monthly, currency)} per month.</p>
       </div>
 
@@ -344,7 +358,7 @@ function Forecast({ isDarkMode }) {
             <p className="text-sm font-black mt-2">Result: +{formatAmount(strategyC_Yearly, currency)} per year</p>
             <p className="text-xs mt-2">Break-even: {scenarioCashLastsMonths > 3? "3 months" : "2 months"}</p>
             <p className="text-xs mt-1">Confidence: {strategyC_Confidence}% — Best balance</p>
-            <p className="text-xs mt-2 font-bold">After plan: cash lasts {(scenarioNewCashLasts > 100? "Many months" : scenarioNewCashLasts.toFixed(1) + " months")} — that is {(scenarioNewCashLasts - scenarioCashLastsMonths).toFixed(1)} months longer</p>
+            <p className="text-xs mt-2 font-bold">After plan: cash lasts {(scenarioNewCashLasts > 100? "Many months" : scenarioNewCashLasts.toFixed(1) + " months")} — that is {(currentCash<=0? 0 : (scenarioNewCashLasts - scenarioCashLastsMonths)).toFixed(1)} months longer</p>
           </div>
         </div>
 
