@@ -61,7 +61,7 @@ function Login() {
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
           <h1 className="text-2xl font-extrabold text-gray-800">Welcome back</h1>
-          <p className="text-gray-600 font-bold text-sm mt-1">Log in to your Financial Tracker account</p>
+          <p className="text-gray-600 font-bold text-sm mt-1">   Log in to your AI Business Advisor</p>
         </div>
 
         <form
